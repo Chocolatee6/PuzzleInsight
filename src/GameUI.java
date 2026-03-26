@@ -1,17 +1,26 @@
 
-import javax.swing.JFrame;
-import javax.swing.*;
 import java.awt.*;
 import java.util.Random;
+import javax.swing.*;
 
 public class GameUI extends JFrame {
 	
 	JButton[][] cells = new JButton[8][8]; // tao ma tran nut bam
 	Random rd = new Random();
+
+	ImageIcon[] characterIcons = new ImageIcon[5];
 	
 	int selectedRow =-1;
 	int selectedCol = -1;
 	
+	ImageIcon loadIcon(String path)
+	{
+		ImageIcon icon = new ImageIcon(path);
+		Image img = icon.getImage().getScaledInstance(60, 60, Image.SCALE_SMOOTH);
+		return new ImageIcon(img);
+	}
+
+
 	public void handleClick(int r, int c)
 	{
 		if(selectedRow == -1)
@@ -33,44 +42,29 @@ public class GameUI extends JFrame {
 	}
 	void swap(int r1,int c1,int r2,int c2){
 
-	    Color color1 = cells[r1][c1].getBackground();
-	    Color color2 = cells[r2][c2].getBackground();
-	    
-	    cells[r1][c1].setBackground(color2);
-	    cells[r2][c2].setBackground(color1);
-	    
-	    if(checkMatch(r1,c1) || checkMatch(r2,c2))
-	    {
-//	    	while(true)
-//	    	{
-//	    		destroyMatch();
-//	    		applyGravity();
-//	    		spawnFromTop();
-//	    		
-//	    		
-//	    		boolean found = false;
-//	    		for(int i=0; i<8;i++)
-//	    		{
-//	    			for(int j=0; j<8;j++)
-//	    			{
-//	    				if(checkMatch(i,j))
-//	    				{
-//	    					found = true;
-//	    				}
-//	    			}
-//	    		}
-//	    		if(!found) break;
-//	    	}
-	    	
-    	    animateDestroy1();
-    	    
-	    	
-	    }else {
-	    	
-	    	cells[r1][c1].setBackground(color1);
-	    	cells[r2][c2].setBackground(color2);
-	    }
-	}
+    int type1 = (int) cells[r1][c1].getClientProperty("type");
+    int type2 = (int) cells[r2][c2].getClientProperty("type");
+
+    // swap dữ liệu
+    cells[r1][c1].putClientProperty("type", type2);
+    cells[r2][c2].putClientProperty("type", type1);
+
+    // cập nhật hình
+    cells[r1][c1].setIcon(characterIcons[type2]);
+    cells[r2][c2].setIcon(characterIcons[type1]);
+
+    // check match
+    if(checkMatch(r1,c1) || checkMatch(r2,c2)){
+        animateDestroy();
+    } else {
+        // đổi lại nếu không hợp lệ
+        cells[r1][c1].putClientProperty("type", type1);
+        cells[r2][c2].putClientProperty("type", type2);
+
+        cells[r1][c1].setIcon(characterIcons[type1]);
+        cells[r2][c2].setIcon(characterIcons[type2]);
+    }
+}
 	boolean checkKeNhau(int r1,int c1,int r2,int c2){
 
 	    int diff = Math.abs(r1 - r2) + Math.abs(c1 - c2);
@@ -81,17 +75,18 @@ public class GameUI extends JFrame {
 	
 	boolean checkMatch(int r,int c)
 	{
-		Color color = cells[r][c].getBackground();
-		int cnt = 1;
 		
-	    if(color.equals(Color.WHITE)) return false;
+		int cnt = 1;
+		int type = (int) cells[r][c].getClientProperty("type");
+		
+	    if(type == -1) return false;
 
 		
 		// ngang trai
 		if(c-1>=0)
 		{
 			int j=c-1;
-			while(j>=0 && cells[r][j].getBackground().equals(color))
+			while(j>=0 && (int)cells[r][j].getClientProperty("type")==type)
 			{
 				cnt++;
 				j--;
@@ -100,7 +95,7 @@ public class GameUI extends JFrame {
 		if(c+1>=0)
 		{
 			int j=c+1;
-			while(j<8 && cells[r][j].getBackground().equals(color))
+			while(j<8 && (int)cells[r][j].getClientProperty("type")==type)
 			{
 				cnt++;
 				j++;
@@ -113,7 +108,7 @@ public class GameUI extends JFrame {
 		if(r-1>=0)
 		{
 			int i=r-1;
-			while(i >= 0 && cells[i][c].getBackground().equals(color)){
+			while(i >= 0 && (int)cells[i][c].getClientProperty("type")==type){
 		        cnt++;
 		        i--;
 			}
@@ -124,7 +119,7 @@ public class GameUI extends JFrame {
 		if(r+1<8)
 		{
 			 int i = r + 1;
-			    while(i < 8 && cells[i][c].getBackground().equals(color)){
+			    while(i < 8 && (int)cells[i][c].getClientProperty("type")==type){
 			        cnt++;
 			        i++;
 			    }
@@ -133,173 +128,132 @@ public class GameUI extends JFrame {
 	}
 	
 	
-	void applyGravity()
-	{
-		for(int j=0; j<8;j++)
-		{
-			for(int i = 7; i>=0; i-- )
-			{
-				if(cells[i][j].getBackground().equals(Color.WHITE))
-				{
-					int k = i-1;
-					while(k>=0 && cells[k][j].getBackground().equals(Color.WHITE))
-					{
-						k--;
-					}
-					if(k>=0)
-					{
-						cells[i][j].setBackground(cells[k][j].getBackground());
-						cells[k][j].setBackground(Color.WHITE);
-					}
-				}
-			}
-		}
-		
-	}
+	void applyGravity(){
+
+    for(int j=0;j<8;j++){
+        for(int i=7;i>=0;i--){
+
+            int type = (int) cells[i][j].getClientProperty("type");
+
+            if(type == -1){
+
+                int k = i - 1;
+
+                while(k >= 0 &&
+                    (int)cells[k][j].getClientProperty("type") == -1){
+                    k--;
+                }
+
+                if(k >= 0){
+
+                    int aboveType = (int) cells[k][j].getClientProperty("type");
+
+                    cells[i][j].putClientProperty("type", aboveType);
+                    cells[i][j].setIcon(characterIcons[aboveType]);
+
+                    cells[k][j].putClientProperty("type", -1);
+                    cells[k][j].setIcon(null);
+                }
+            }
+        }
+    }
+}
 	
 	
-	void spawnFromTop()
-	{
-		for(int j=0; j<8;j++)
-		{
-			for(int i=0; i<8;i++)
-			{
-				if(cells[i][j].getBackground().equals(Color.WHITE))
-				{
-					int candy = rd.nextInt(5);
-					
-					if(candy == 0) cells[i][j].setBackground(Color.RED);
-					if(candy == 1) cells[i][j].setBackground(Color.BLUE);
-					if(candy == 2) cells[i][j].setBackground(Color.YELLOW);
-					if(candy == 3) cells[i][j].setBackground(Color.GREEN);
-					if(candy == 4) cells[i][j].setBackground(Color.ORANGE);
+	void spawnFromTop(){
 
-					
-				}
-			}
-		}
-	}
+    for(int j=0;j<8;j++){
+        for(int i=0;i<8;i++){
+
+            int type = (int) cells[i][j].getClientProperty("type");
+
+            if(type == -1){
+
+                int newCandy = rd.nextInt(5);
+
+                cells[i][j].putClientProperty("type", newCandy);
+                cells[i][j].setIcon(characterIcons[newCandy]);
+            }
+        }
+    }
+}
 	
 	
-	void destroyMatch()
-	{
-		boolean[][] mark  = new boolean[8][8];
-		
-		//check ngang
-		for(int i=0;i<8;i++)
-		{
-			for(int j=0; j<6;j++)
-			{
-				Color c = cells[i][j].getBackground();
-				if(c.equals(cells[i][j+1].getBackground()) && c.equals(cells[i][j+2].getBackground())) {
-					mark[i][j] = true;
-					mark[i][j+1]=true;
-					mark[i][j+2]= true;
-				}
-			}
-		}
-		//check doc
-		for(int i=0;i<6;i++)
-		{
-			for(int j=0; j<8;j++)
-			{
-				Color c = cells[i][j].getBackground();
-				if(c.equals(cells[i+1][j].getBackground()) && c.equals(cells[i+2][j].getBackground())) {
-					mark[i][j] = true;
-					mark[i+1][j]=true;
-					mark[i+2][j]= true;
-				}
-			}
-		}
-		
-		for(int i=0; i<8;i++)
-		{
-			for(int j=0; j<8;j++)
-			{
-				if(mark[i][j])  cells[i][j].setBackground(Color.white);
-			}
-		}
-		
-	}
+	void destroyMatch() {
+
+    boolean[][] mark = new boolean[8][8];
+
+    // check ngang
+    for(int i=0;i<8;i++){
+        for(int j=0;j<6;j++){
+
+            int type = (int) cells[i][j].getClientProperty("type");
+
+            if(type != -1 &&
+               type == (int)cells[i][j+1].getClientProperty("type") &&
+               type == (int)cells[i][j+2].getClientProperty("type")){
+
+                mark[i][j] = mark[i][j+1] = mark[i][j+2] = true;
+            }
+        }
+    }
+
+    // check dọc
+    for(int i=0;i<6;i++){
+        for(int j=0;j<8;j++){
+
+            int type = (int) cells[i][j].getClientProperty("type");
+
+            if(type != -1 &&
+               type == (int)cells[i+1][j].getClientProperty("type") &&
+               type == (int)cells[i+2][j].getClientProperty("type")){
+
+                mark[i][j] = mark[i+1][j] = mark[i+2][j] = true;
+            }
+        }
+    }
+
+    // phá
+    for(int i=0;i<8;i++){
+        for(int j=0;j<8;j++){
+            if(mark[i][j]){
+                cells[i][j].putClientProperty("type", -1);
+                cells[i][j].setIcon(null);
+            }
+        }
+    }
+}
 	
-	void animateDestroy1(){
-
-	    boolean[][] mark = new boolean[8][8];
-
-	    // check ngang
-	    for(int i=0;i<8;i++){
-	        for(int j=0;j<6;j++){
-	            Color c = cells[i][j].getBackground();
-
-	            if(!c.equals(Color.WHITE) &&
-	               c.equals(cells[i][j+1].getBackground()) &&
-	               c.equals(cells[i][j+2].getBackground())){
-
-	                mark[i][j] = mark[i][j+1] = mark[i][j+2] = true;
-	            }
-	        }
-	    }
-
-	    // check dọc
-	    for(int i=0;i<6;i++){
-	        for(int j=0;j<8;j++){
-	            Color c = cells[i][j].getBackground();
-
-	            if(!c.equals(Color.WHITE) &&
-	               c.equals(cells[i+1][j].getBackground()) &&
-	               c.equals(cells[i+2][j].getBackground())){
-
-	                mark[i][j] = mark[i+1][j] = mark[i+2][j] = true;
-	            }
-	        }
-	    }
-
-	    // 💥 hiệu ứng flash
-	    Timer flash = new Timer(100, null);
-
-	    flash.addActionListener(e -> {
-
-	        for(int i=0;i<8;i++){
-	            for(int j=0;j<8;j++){
-	                if(mark[i][j]){
-	                    cells[i][j].setBackground(Color.WHITE);
-	                }
-	            }
-	        }
-
-	        ((Timer)e.getSource()).stop();
-
-	        // sau khi phá → rơi
-	        animateGravity();
-	    });
-
-	    flash.setRepeats(false);
-	    flash.start();
-	}
+	
 	
 	
 	
 	boolean fallStep(){
 
-	    boolean moved = false;
+    boolean moved = false;
 
-	    for(int j=0;j<8;j++){
-	        for(int i=7;i>0;i--){
+    for(int j=0;j<8;j++){
+        for(int i=7;i>0;i--){
 
-	            if(cells[i][j].getBackground().equals(Color.WHITE) &&
-	               !cells[i-1][j].getBackground().equals(Color.WHITE)){
+            int cur = (int) cells[i][j].getClientProperty("type");
+            int above = (int) cells[i-1][j].getClientProperty("type");
 
-	                // kéo xuống 1 ô
-	                cells[i][j].setBackground(cells[i-1][j].getBackground());
-	                cells[i-1][j].setBackground(Color.WHITE);
+            if(cur == -1 && above != -1){
 
-	                moved = true;
-	            }
-	        }
-	    }
+                // kéo xuống 1 ô
+                cells[i][j].putClientProperty("type", above);
+                cells[i][j].setIcon(characterIcons[above]);
 
-	    return moved;
-	}
+                cells[i-1][j].putClientProperty("type", -1);
+                cells[i-1][j].setIcon(null);
+
+                moved = true;
+            }
+        }
+    }
+
+    return moved;
+}
 	
 	boolean hasAnyMatch(){
 
@@ -342,7 +296,7 @@ public class GameUI extends JFrame {
 
 	            // sau khi spawn, check combo tiếp
 	            if(hasAnyMatch()){
-	                animateDestroy1(); // gọi lại vòng lặp
+	                animateDestroy(); // gọi lại vòng lặp
 	            }
 	        }
 	    });
@@ -365,23 +319,30 @@ public class GameUI extends JFrame {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setLocationRelativeTo(null);
 		
-		JPanel broadPanel = new JPanel();
+		JPanel broadPanel = new GradientPanel();
 		broadPanel.setLayout(new GridLayout(8,8));
 		
+		for (int i = 0; i <5; i++) {
+			characterIcons[i] = loadIcon("images/characters_000"+(i+1)+".png");
+		}
+
+
 		for(int i=0; i<8;i++)
 		{
 			for(int j=0;j<8;j++)
 			{
 				cells[i][j] = new JButton();
+				cells[i][j].setPreferredSize(new Dimension(60,60));
+				cells[i][j].setBorderPainted(false);
+				cells[i][j].setFocusPainted(false);
+				cells[i][j].setContentAreaFilled(false);
 				int row = i,col=j;
 				cells[i][j].addActionListener(e->handleClick(row,col));
 				
 				int candy = rd.nextInt(5);
-				if(candy==0) cells[i][j].setBackground(Color.red);
-				if(candy==1) cells[i][j].setBackground(Color.blue);
-				if(candy==2) cells[i][j].setBackground(Color.yellow);
-				if(candy==3) cells[i][j].setBackground(Color.green);
-				if(candy==4) cells[i][j].setBackground(Color.orange);
+
+				cells[i][j].putClientProperty("type", candy);
+				cells[i][j].setIcon(characterIcons[candy]);
 
 				broadPanel.add(cells[i][j]);
 			}
