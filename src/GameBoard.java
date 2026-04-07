@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.awt.event.*;
 import java.util.Random;
 import javax.swing.*;
 
@@ -19,10 +20,16 @@ public class GameBoard extends JPanel {
     private final ImageIcon[]   icons;
     private final Random        rd     = new Random();
 
-    // ── Trạng thái lựa chọn ──
-    private int  selectedRow = -1;
-    private int  selectedCol = -1;
-    private boolean isAnimating = false;
+    // ── Trạng thái drag ──
+    private int     dragStartRow = -1;
+    private int     dragStartCol = -1;
+    private int     dragStartX   = 0;
+    private int     dragStartY   = 0;
+    private boolean dragFired    = false;   // đã trigger swap trong lần drag này chưa
+    private boolean isAnimating  = false;
+
+    /** Ngưỡng pixel tối thiểu để coi là kéo */
+    private static final int DRAG_THRESHOLD = 15;
 
     // ── Thành phần con ──
     private final JLayeredPane    layeredPane = new JLayeredPane();
@@ -96,11 +103,79 @@ public class GameBoard extends JPanel {
                 btn.setIcon(icons[candy]);
 
                 final int row = i, col = j;
-                btn.addActionListener(e -> handleClick(row, col));
+                addDragListeners(btn, row, col);
 
                 gridPanel.add(btn);
             }
         }
+    }
+
+    // ─────────────────────────────────────────────
+    //  Gắn MouseListener + MouseMotionListener (drag)
+    // ─────────────────────────────────────────────
+    private void addDragListeners(JButton btn, int row, int col) {
+        MouseAdapter ma = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (isAnimating) return;
+                // Bắt đầu drag tại ô này
+                dragStartRow = row;
+                dragStartCol = col;
+                dragStartX   = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).x;
+                dragStartY   = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).y;
+                dragFired    = false;
+                // Highlight ô đang giữ
+                board[row][col].getButton().setBorder(
+                        BorderFactory.createLineBorder(Color.WHITE, 3));
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                // Xóa highlight
+                if (dragStartRow >= 0 && dragStartCol >= 0) {
+                    board[dragStartRow][dragStartCol].getButton()
+                            .setBorder(UIManager.getBorder("Button.border"));
+                }
+                dragStartRow = -1;
+                dragStartCol = -1;
+                dragFired    = false;
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (isAnimating || dragFired || dragStartRow < 0) return;
+
+                int cx = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).x;
+                int cy = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).y;
+                int dx = cx - dragStartX;
+                int dy = cy - dragStartY;
+
+                if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+
+                // Xác định hướng kéo chính
+                int targetRow = dragStartRow;
+                int targetCol = dragStartCol;
+                if (Math.abs(dx) >= Math.abs(dy)) {
+                    targetCol += (dx > 0) ? 1 : -1;   // ngang
+                } else {
+                    targetRow += (dy > 0) ? 1 : -1;   // dọc
+                }
+
+                // Kiểm tra hợp lệ
+                if (targetRow < 0 || targetRow >= SIZE || targetCol < 0 || targetCol >= SIZE) return;
+                if (!logic.checkKeNhau(dragStartRow, dragStartCol, targetRow, targetCol)) return;
+
+                // Xóa highlight & trigger swap
+                board[dragStartRow][dragStartCol].getButton()
+                        .setBorder(UIManager.getBorder("Button.border"));
+                dragFired   = true;
+                isAnimating = true;
+                animator.animateSwap(dragStartRow, dragStartCol, targetRow, targetCol);
+            }
+        };
+
+        btn.addMouseListener(ma);
+        btn.addMouseMotionListener(ma);
     }
 
     /** Kiểm tra nếu đặt candy tại (r,c) có tạo match 3 ngay khi init không */
@@ -116,30 +191,5 @@ public class GameBoard extends JPanel {
         return false;
     }
 
-    // ─────────────────────────────────────────────
-    //  Xử lý click vào ô (r, c)
-    // ─────────────────────────────────────────────
-    public void handleClick(int r, int c) {
-        if (isAnimating) return;
-
-        if (selectedRow == -1) {
-            // Chọn ô đầu tiên
-            selectedRow = r;
-            selectedCol = c;
-            board[r][c].getButton().setBorder(
-                    BorderFactory.createLineBorder(Color.WHITE, 3));
-        } else {
-            // Bỏ highlight ô trước
-            board[selectedRow][selectedCol].getButton()
-                    .setBorder(UIManager.getBorder("Button.border"));
-
-            if (logic.checkKeNhau(selectedRow, selectedCol, r, c)) {
-                isAnimating = true;
-                animator.animateSwap(selectedRow, selectedCol, r, c);
-            }
-
-            selectedRow = -1;
-            selectedCol = -1;
-        }
-    }
 }
+
