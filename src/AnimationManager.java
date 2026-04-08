@@ -26,6 +26,17 @@ public class AnimationManager {
     }
 
     private AnimationCallback doneCallback;
+    private volatile boolean cancelled = false;
+
+    /** Callback báo GameBoard rằng swap tạo match → mới trừ bước */
+    public interface MovePerformedCallback { void onMovePerformed(); }
+    private MovePerformedCallback movePerformedCallback;
+
+    public void setMovePerformedCallback(MovePerformedCallback cb) { 
+    this.movePerformedCallback = cb; 
+}
+    public void cancel()      { cancelled = true;  }
+    public void resetCancel() { cancelled = false; }
 
     public AnimationManager(BoardCell[][] board,
                             ImageIcon[]   icons,
@@ -74,6 +85,7 @@ public class AnimationManager {
 
         Timer timer = new Timer(SWAP_DELAY, null);
         timer.addActionListener(e -> {
+            if (cancelled) { timer.stop(); removeLabels(l1, l2); b1.setIcon(icons[type1]); b2.setIcon(icons[type2]); return; }
             count[0]++;
 
             if (count[0] >= SWAP_STEPS) {
@@ -97,10 +109,12 @@ public class AnimationManager {
                 b2.setIcon(icons[type1]);
 
                 // Kiểm tra match
+                if (movePerformedCallback != null) movePerformedCallback.onMovePerformed();
+
                 if (logic.checkMatch(r1, c1) || logic.checkMatch(r2, c2)) {
                     animateDestroy();
                 } else {
-                    animateSwapBack(r1, c1, r2, c2, type1, type2);
+                 animateSwapBack(r1, c1, r2, c2, type1, type2);
                 }
             }
         });
@@ -139,6 +153,7 @@ public class AnimationManager {
 
         Timer timer = new Timer(SWAP_DELAY, null);
         timer.addActionListener(e -> {
+            if (cancelled) { timer.stop(); removeLabels(l1, l2); b1.setIcon(icons[type1]); b2.setIcon(icons[type2]); return; }
             count[0]++;
 
             if (count[0] >= SWAP_STEPS) {
@@ -185,6 +200,7 @@ public class AnimationManager {
     public void animateGravity() {
         Timer timer = new Timer(GRAVITY_DELAY, null);
         timer.addActionListener(e -> {
+            if (cancelled) { timer.stop(); return; }
             boolean moved = logic.fallStep();
             if (!moved) {
                 timer.stop();

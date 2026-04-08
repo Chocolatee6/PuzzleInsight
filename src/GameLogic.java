@@ -1,5 +1,5 @@
-import javax.swing.*;
 import java.util.Random;
+import javax.swing.*;
 
 /**
  * GameLogic chứa toàn bộ logic trò chơi thuần túy:
@@ -36,6 +36,12 @@ public class GameLogic {
     }
 
     public int getScore() { return score; }
+
+    /** Reset điểm về 0 khi bắt đầu màn mới */
+    public void resetScore() {
+        score = 0;
+        if (scoreListener != null) scoreListener.onScoreChanged(score);
+    }
 
     // ─────────────────────────────────────────────
     //  Kiểm tra kề nhau (Manhattan distance == 1)
@@ -104,18 +110,37 @@ public class GameLogic {
             }
         }
 
-        // Phá các ô được đánh dấu
-        for (int i = 0; i < SIZE; i++) {
-            for (int j = 0; j < SIZE; j++) {
-                if (mark[i][j]) {
+        // đếm số lượng ô bị phá hủy 
+        int destroyedCnt = 0;
+        for(int i=0; i<SIZE;i++){
+            for(int j=0; j<SIZE;j++)
+            {
+                if(mark[i][j])
+                {
                     board[i][j].setType(-1);
                     board[i][j].getButton().setIcon(null);
-                    score += 10;
+                    destroyedCnt++;
                 }
             }
+                
         }
 
-        if (scoreListener != null) scoreListener.onScoreChanged(score);
+        if(destroyedCnt==3)
+        {
+            score+=30;
+        }else if(destroyedCnt==4)
+        {
+            score+=50;
+        }else if(destroyedCnt>=5)
+        {
+            score+=80;
+        }
+
+
+
+        if (destroyedCnt > 0 && scoreListener != null) {
+            scoreListener.onScoreChanged(score);
+        }
     }
 
     // ─────────────────────────────────────────────
