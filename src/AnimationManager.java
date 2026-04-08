@@ -10,10 +10,10 @@ import javax.swing.*;
  */
 public class AnimationManager {
 
-    private static final int SWAP_DELAY   = 10;   // ms mỗi frame swap
-    private static final int SWAP_STEPS   = 20;   // số frame swap
-    private static final int DESTROY_WAIT = 150;  // ms trước khi gravity
-    private static final int GRAVITY_DELAY = 80;  // ms mỗi frame rơi
+    private static final int SWAP_DELAY   = 16;   // ms mỗi frame swap
+    private static final int SWAP_STEPS   = 12;   // số frame swap
+    private static final int DESTROY_WAIT = 100;  // ms trước khi gravity
+    private static final int GRAVITY_DELAY = 40;  // ms mỗi frame rơi
 
     private final BoardCell[][]  board;
     private final ImageIcon[]    icons;

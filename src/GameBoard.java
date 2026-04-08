@@ -4,12 +4,7 @@ import java.util.Random;
 import javax.swing.*;
 
 /**
- * GameBoard = bàn cờ 8×8.
- * Quản lý:
- * - Khởi tạo các ô (BoardCell)
- * - Xử lý sự kiện drag
- * - Phối hợp GameLogic và AnimationManager
- * - Đếm số bước di chuyển
+ * GameBoard – Quản lý bàn cờ 8x8, xử lý kéo thả và phối hợp các thành phần logic.
  */
 public class GameBoard extends JPanel {
 
@@ -21,7 +16,7 @@ public class GameBoard extends JPanel {
     private final ImageIcon[] icons;
     private final Random rd = new Random();
 
-    // ── Trạng thái drag ──
+    // ── Trạng thái kéo thả (Drag) ──
     private int dragStartRow = -1;
     private int dragStartCol = -1;
     private int dragStartX = 0;
@@ -39,19 +34,24 @@ public class GameBoard extends JPanel {
     private final GameLogic logic;
     private final AnimationManager animator;
 
-    // ── Listeners ──
+    private Timer idleTimer;
+    private boolean isAutoPlaying = false;
+    private int currentAIMode = 0;
+    
+
+    
+
+
+    // ── Giao diện lắng nghe (Listeners) – Quan trọng để kết nối với GameUI ──
     public interface ScoreUpdateListener {
         void onScoreChanged(int newScore);
     }
-
     private ScoreUpdateListener scoreUpdateListener;
 
     public interface MoveListener {
         void onMoveUsed(int movesLeft);
-
         void onMovesExhausted();
     }
-
     private MoveListener moveListener;
 
     public GameBoard(ImageIcon[] icons) {
@@ -66,17 +66,18 @@ public class GameBoard extends JPanel {
         gridPanel.setBounds(0, 0, boardPx, boardPx);
 
         initCells(gridPanel);
-
         layeredPane.add(gridPanel, JLayeredPane.DEFAULT_LAYER);
 
         logic = new GameLogic(board, icons);
         animator = new AnimationManager(board, icons, layeredPane, logic);
 
+        // Cập nhật điểm lên UI khi có thay đổi từ logic
         logic.setScoreListener(newScore -> {
             if (scoreUpdateListener != null)
                 scoreUpdateListener.onScoreChanged(newScore);
         });
 
+        // Xử lý sau khi kết thúc hiệu ứng (nổ kẹo, rơi kẹo)
         animator.setAnimationCallback(() -> {
             isAnimating = false;
             if (pendingExhausted) {
@@ -86,14 +87,14 @@ public class GameBoard extends JPanel {
             }
         });
 
-        // Chỉ trừ bước khi swap tạo được match (swap-back không tốn bước)
+        // Trừ bước đi khi người chơi thực hiện đổi chỗ thành công
         animator.setMovePerformedCallback(() -> {
-            movesLeft--; // Mỗi lần thực hiện kéo/đổi chỗ sẽ trừ 1 bước
+            movesLeft--;
             if (moveListener != null)
-            moveListener.onMoveUsed(movesLeft);
+                moveListener.onMoveUsed(movesLeft);
     
             if (movesLeft <= 0)
-            pendingExhausted = true;
+                pendingExhausted = true;
         });
 
         setLayout(new GridBagLayout());
@@ -110,20 +111,18 @@ public class GameBoard extends JPanel {
         this.moveListener = l;
     }
 
-    /**
-     * Reset bàn cờ cho màn mới: huỷ animation cũ, reset điểm + bước, lấy bàn mới.
-     */
+    /** Reset bàn cờ cho màn chơi mới */
     public void initLevel(LevelConfig config) {
-        animator.cancel(); // dừng animation đang chạy
+        animator.cancel(); 
         isAnimating = false;
         pendingExhausted = false;
         movesLeft = config.maxMoves;
         logic.resetScore();
-        animator.resetCancel(); // cho phép animation mới
+        animator.resetCancel(); 
         resetBoard();
     }
 
-    // ── Nội bộ ───────────────────────────────────────────────────────────────
+    // ── Nội bộ (Private) ──────────────────────────────────────────────────────
 
     private void initCells(JPanel gridPanel) {
         for (int i = 0; i < SIZE; i++) {
@@ -149,16 +148,15 @@ public class GameBoard extends JPanel {
         }
     }
 
-    /** Xáo lại toàn bàn cờ mà không tạo lại JButton */
+    /** Xáo lại bàn cờ khi bắt đầu màn mới hoặc khi bí nước */
     private void resetBoard() {
-        // Xoá hết
-        for (int i = 0; i < SIZE; i++)
+        for (int i = 0; i < SIZE; i++) {
             for (int j = 0; j < SIZE; j++) {
                 board[i][j].setType(-1);
                 board[i][j].getButton().setIcon(null);
             }
-        // Xáo ngẫu nhiên, tránh match sẵn
-        for (int i = 0; i < SIZE; i++)
+        }
+        for (int i = 0; i < SIZE; i++) {
             for (int j = 0; j < SIZE; j++) {
                 int candy;
                 do {
@@ -167,19 +165,22 @@ public class GameBoard extends JPanel {
                 board[i][j].setType(candy);
                 board[i][j].getButton().setIcon(icons[candy]);
             }
+        }
     }
 
     private void addDragListeners(JButton btn, int row, int col) {
         MouseAdapter ma = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                if (isAnimating)
-                    return;
+                if (isAnimating) return;
+                
                 dragStartRow = row;
                 dragStartCol = col;
                 dragStartX = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).x;
                 dragStartY = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).y;
                 dragFired = false;
+                
+                // Hiệu ứng viền khi chọn kẹo
                 board[row][col].getButton().setBorder(
                         BorderFactory.createLineBorder(Color.WHITE, 3));
             }
@@ -187,8 +188,7 @@ public class GameBoard extends JPanel {
             @Override
             public void mouseReleased(MouseEvent e) {
                 if (dragStartRow >= 0 && dragStartCol >= 0)
-                    board[dragStartRow][dragStartCol].getButton()
-                            .setBorder(UIManager.getBorder("Button.border"));
+                    board[dragStartRow][dragStartCol].getButton().setBorder(null);
                 dragStartRow = -1;
                 dragStartCol = -1;
                 dragFired = false;
@@ -196,34 +196,31 @@ public class GameBoard extends JPanel {
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                if (isAnimating || dragFired || dragStartRow < 0)
-                    return;
+                if (isAnimating || dragFired || dragStartRow < 0) return;
 
                 int cx = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).x;
                 int cy = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).y;
                 int dx = cx - dragStartX;
                 int dy = cy - dragStartY;
 
-                if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD)
-                    return;
+                if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
 
                 int targetRow = dragStartRow;
                 int targetCol = dragStartCol;
+                
                 if (Math.abs(dx) >= Math.abs(dy))
                     targetCol += (dx > 0) ? 1 : -1;
                 else
                     targetRow += (dy > 0) ? 1 : -1;
 
-                if (targetRow < 0 || targetRow >= SIZE || targetCol < 0 || targetCol >= SIZE)
-                    return;
-                if (!logic.checkKeNhau(dragStartRow, dragStartCol, targetRow, targetCol))
-                    return;
+                if (targetRow < 0 || targetRow >= SIZE || targetCol < 0 || targetCol >= SIZE) return;
+                if (!logic.checkKeNhau(dragStartRow, dragStartCol, targetRow, targetCol)) return;
 
-                board[dragStartRow][dragStartCol].getButton()
-                        .setBorder(UIManager.getBorder("Button.border"));
+                board[dragStartRow][dragStartCol].getButton().setBorder(null);
                 dragFired = true;
                 isAnimating = true;
 
+                // Thực hiện đổi chỗ
                 animator.animateSwap(dragStartRow, dragStartCol, targetRow, targetCol);
             }
         };
@@ -231,16 +228,14 @@ public class GameBoard extends JPanel {
         btn.addMouseMotionListener(ma);
     }
 
+    /** Ngăn chặn việc khởi tạo bàn cờ có sẵn các tổ hợp ăn điểm */
     private boolean hasEarlyMatch(int r, int c, int candy) {
-        if (r >= 2
-                && board[r - 1][c] != null && board[r - 1][c].getType() == candy
+        if (r >= 2 && board[r - 1][c] != null && board[r - 1][c].getType() == candy
                 && board[r - 2][c] != null && board[r - 2][c].getType() == candy)
             return true;
-        if (c >= 2
-                && board[r][c - 1] != null && board[r][c - 1].getType() == candy
+        if (c >= 2 && board[r][c - 1] != null && board[r][c - 1].getType() == candy
                 && board[r][c - 2] != null && board[r][c - 2].getType() == candy)
             return true;
         return false;
     }
-
 }

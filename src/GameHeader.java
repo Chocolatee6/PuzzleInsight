@@ -3,83 +3,98 @@ import java.awt.geom.*;
 import javax.swing.*;
 
 /**
- * GameHeader – Panel header phong cách arcade/RPG.
- * Bao gồm:
- * - Tiêu đề neon-glow
- * - HUD Score với hiệu ứng pulse khi điểm thay đổi
- * - HUD Moves hiển thị số bước đi còn lại
- * - Countdown timer
- * - Background gradient tối + shimmer animation
+ * GameHeader – Chuyển đổi sang phong cách Cute/Pastel/Candy.
+ * Phù hợp với giao diện tươi sáng của bàn cờ.
  */
 public class GameHeader extends JPanel {
 
-    // ── Màu sắc chủ đạo ──
-    private static final Color BG_TOP = new Color(10, 5, 30);
-    private static final Color BG_BOT = new Color(25, 10, 60);
-    private static final Color ACCENT = new Color(160, 80, 255);
-    private static final Color ACCENT_GLOW = new Color(200, 120, 255, 80);
-    private static final Color GOLD = new Color(255, 215, 50);
-    private static final Color GOLD_DIM = new Color(180, 140, 30);
-    private static final Color PANEL_BG = new Color(0, 0, 0, 150);
-    private static final Color PANEL_BORDER = new Color(180, 80, 255, 180);
-    private static final Color TIMER_OK = new Color(80, 220, 120);
-    private static final Color TIMER_WARN = new Color(255, 200, 50);
-    private static final Color TIMER_CRIT = new Color(255, 60, 60);
-    private static final Color MOVES_COLOR = new Color(100, 200, 255);
+    // ── Màu sắc chủ đạo (Phong cách kẹo ngọt) ──
+    private static final Color BG_TOP = new Color(255, 235, 245);
+    private static final Color BG_BOT = new Color(230, 240, 255);
+    private static final Color PANEL_BG = new Color(255, 255, 255, 220);
+    private static final Color TEXT_DARK = new Color(100, 80, 90);
+    private static final Color TITLE_COLOR = new Color(255, 100, 160);
+    private static final Color SCORE_COLOR = new Color(255, 150, 50);
+    private static final Color MOVES_COLOR = new Color(50, 180, 255);
+    private static final Color TIME_COLOR  = new Color(80, 210, 100);
+    private static final Color TIME_CRIT   = new Color(255, 80, 80);
 
     // ── Fonts ──
-    private static final Font TITLE_FONT = new Font("Arial", Font.BOLD, 22); // Thu nhỏ 1 chút để nhường chỗ cho HUD
-    private static final Font LABEL_FONT = new Font("Arial", Font.BOLD, 11);
-    private static final Font VALUE_FONT = new Font("Arial", Font.BOLD, 24);
+    private static final Font LABEL_FONT = new Font("Arial", Font.BOLD, 13);
+    private static final Font VALUE_FONT = new Font("Arial", Font.BOLD, 26);
 
     // ── Dữ liệu HUD ──
     private int score = 0;
-    private int highScore = 0;
-    private int timeLeft = 120; // giây
-    private int maxTime  = 120; // để vẽ progress bar
-    private int movesLeft = 0;  // Số bước đi còn lại
-    private boolean timerRunning = false;
-
     private int targetScore = 0;
     private int currentLevel = 1;
+    private int timeLeft = 120;
+    private int maxTime  = 120;
+    private int movesLeft = 0;
+    private boolean timerRunning = false;
 
     // ── Hiệu ứng ──
-    private float shimmerX = 0f;
-    private float pulseFactor = 1f; // scale pulse khi score tăng
+    private float pulseFactor = 1f;
     private boolean pulsingScore = false;
-
-    // ── Timers ──
+    private float floatAnimY = 0f;
     private final Timer animTimer;
     private Timer countdownTimer;
 
-    // ── Listener ──
-    public interface TimerExpiredListener {
-        void onTimerExpired();
-    }
-
+    // ── Listeners ──
+    public interface TimerExpiredListener { void onTimerExpired(); }
     private TimerExpiredListener timerExpiredListener;
 
-    // ── Particle stars: lưu vị trí ngẫu nhiên tĩnh ──
-    private final float[][] stars;
+    public interface PauseListener { void onPauseClicked(); }
+    private PauseListener pauseListener;
+
+    public interface HelpListener { void onHelpClicked(); }
+    private HelpListener helpListener;
+
+    public void setTimerExpiredListener(TimerExpiredListener l) { this.timerExpiredListener = l; }
+    public void setPauseListener(PauseListener l) { this.pauseListener = l; }
+    public void setHelpListener(HelpListener l) { this.helpListener = l; }
 
     public GameHeader() {
-        setPreferredSize(new Dimension(0, 100));
+        setPreferredSize(new Dimension(0, 130)); 
         setOpaque(false);
+        setLayout(null);
+        
+        // ── NÚT HELP (Cạnh nút Pause) ──
+        ImageIcon iconHelp = new ImageIcon("images/Help (3).png");
+        Image scaledHelp = iconHelp.getImage().getScaledInstance(45, 45, Image.SCALE_SMOOTH);
+        JButton btnHelp = new JButton(new ImageIcon(scaledHelp));
+        btnHelp.setContentAreaFilled(false);
+        btnHelp.setBorderPainted(false);
+        btnHelp.setFocusPainted(false);
+        btnHelp.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        
+        btnHelp.setBounds(365, 15, 45, 45); // Đặt ở x=365
+        btnHelp.addActionListener(e -> {
+            if (helpListener != null) helpListener.onHelpClicked();
+        });
+        add(btnHelp);
 
-        // Tạo 30 ngôi sao ngẫu nhiên (tọa độ tỉ lệ 0-1)
-        stars = new float[30][2];
-        for (int i = 0; i < 30; i++) {
-            stars[i][0] = (float) Math.random();
-            stars[i][1] = (float) Math.random();
-        }
+        // ── NÚT PAUSE (Góc phải) ──
+        ImageIcon iconPause = new ImageIcon("images/Pause (3).png");
+        Image scaledPause = iconPause.getImage().getScaledInstance(45, 45, Image.SCALE_SMOOTH);
+        JButton btnPause = new JButton(new ImageIcon(scaledPause));
+        btnPause.setContentAreaFilled(false);
+        btnPause.setBorderPainted(false);
+        btnPause.setFocusPainted(false);
+        btnPause.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        
+        btnPause.setBounds(420, 15, 45, 45); // Đặt ở x=420
+        btnPause.addActionListener(e -> {
+            if (pauseListener != null) pauseListener.onPauseClicked();
+        });
+        add(btnPause);
 
-        // Animation loop ~60fps: shimmer + repaint
+        // Animation nhấp nhô và nhịp tim
         animTimer = new Timer(16, e -> {
-            shimmerX += 1.5f;
-            if (shimmerX > getWidth() + 200)
-                shimmerX = -200;
+            long t = System.currentTimeMillis();
+            floatAnimY = (float) Math.sin(t / 300.0) * 3f;
+
             if (pulsingScore) {
-                pulseFactor -= 0.04f;
+                pulseFactor -= 0.05f;
                 if (pulseFactor <= 1f) {
                     pulseFactor = 1f;
                     pulsingScore = false;
@@ -90,23 +105,17 @@ public class GameHeader extends JPanel {
         animTimer.start();
     }
 
-    // ─────────────────────────────────────────────
-    // API công khai
-    // ─────────────────────────────────────────────
     public void setScore(int newScore) {
         if (newScore > score) {
-            pulseFactor = 1.5f;
+            pulseFactor = 1.4f;
             pulsingScore = true;
         }
         score = newScore;
-        if (score > highScore)
-            highScore = score;
         repaint();
     }
 
     public void startTimer() {
-        if (timerRunning)
-            return;
+        if (timerRunning) return;
         timerRunning = true;
         countdownTimer = new Timer(1000, e -> {
             timeLeft--;
@@ -130,11 +139,6 @@ public class GameHeader extends JPanel {
         repaint();
     }
 
-    public void setTimerExpiredListener(TimerExpiredListener l) {
-        this.timerExpiredListener = l;
-    }
-
-    /** Reset bảng cho màn mới: reset timer + điểm + moves */
     public void initLevel(LevelConfig config) {
         setScore(0);
         this.targetScore = config.targetScore;
@@ -143,21 +147,16 @@ public class GameHeader extends JPanel {
         setMovesLeft(config.maxMoves);
     }
 
-    /** Dừng timer (không reset thời gian) */
     public void stopTimer() {
         if (countdownTimer != null) countdownTimer.stop();
         timerRunning = false;
     }
 
-    /** Cập nhật số bước đi còn lại */
     public void setMovesLeft(int moves) {
         this.movesLeft = moves;
         repaint();
     }
 
-    // ─────────────────────────────────────────────
-    // Vẽ toàn bộ header
-    // ─────────────────────────────────────────────
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -167,250 +166,139 @@ public class GameHeader extends JPanel {
 
         int w = getWidth(), h = getHeight();
 
-        // 1. Background gradient
-        drawBackground(g2, w, h);
+        GradientPaint gp = new GradientPaint(0, 0, BG_TOP, 0, h, BG_BOT);
+        g2.setPaint(gp);
+        g2.fillRect(0, 0, w, h);
 
-        // 2. Shimmer sweep
-        drawShimmer(g2, w, h);
-
-        // 3. Stars
-        drawStars(g2, w, h);
-
-        // 4. Bottom divider glow
-        drawDivider(g2, w, h);
-
-        // 5. Tiêu đề game (Đẩy lên cao)
+        drawClouds(g2, w, h);
         drawTitle(g2, w, h);
 
-        // 6. HUD Score (Bên trái)
-        drawScoreHUD(g2, w, h);
+        int panelW = 125, panelH = 55;
+        int gap = (w - (panelW * 3)) / 4; 
+        int py = 65; 
 
-        // 7. HUD Moves (Ở giữa)
-        drawMovesHUD(g2, w, h);
-
-        // 8. Timer HUD (Bên phải)
-        drawTimerHUD(g2, w, h);
+        drawScoreHUD(g2, gap, py, panelW, panelH);
+        drawMovesHUD(g2, gap * 2 + panelW, py, panelW, panelH);
+        drawTimerHUD(g2, gap * 3 + panelW * 2, py, panelW, panelH);
 
         g2.dispose();
     }
 
-    private void drawBackground(Graphics2D g2, int w, int h) {
-        GradientPaint gp = new GradientPaint(0, 0, BG_TOP, 0, h, BG_BOT);
-        g2.setPaint(gp);
-        g2.fillRect(0, 0, w, h);
-    }
-
-    private void drawShimmer(Graphics2D g2, int w, int h) {
-        float sx = shimmerX;
-        GradientPaint shimmer = new GradientPaint(
-                sx - 100, 0, new Color(255, 255, 255, 0),
-                sx, 0, new Color(255, 255, 255, 18),
-                true);
-        g2.setPaint(shimmer);
-        g2.fillRect(0, 0, w, h);
-    }
-
-    private void drawStars(Graphics2D g2, int w, int h) {
-        long t = System.currentTimeMillis();
-        for (float[] star : stars) {
-            float x = star[0] * w;
-            float y = star[1] * h;
-            double phase = (t / 800.0 + star[0] * 10);
-            int alpha = (int) (120 + 130 * Math.abs(Math.sin(phase)));
-            g2.setColor(new Color(255, 255, 255, alpha));
-            float r = 1.2f + (float) (Math.sin(phase) * 0.5);
-            g2.fill(new Ellipse2D.Float(x - r, y - r, r * 2, r * 2));
-        }
-    }
-
-    private void drawDivider(Graphics2D g2, int w, int h) {
-        GradientPaint div = new GradientPaint(
-                0, h - 1, new Color(ACCENT.getRed(), ACCENT.getGreen(), ACCENT.getBlue(), 0),
-                w / 2, h - 1, ACCENT,
-                true);
-        g2.setStroke(new BasicStroke(2f));
-        g2.setPaint(div);
-        g2.drawLine(0, h - 1, w, h - 1);
-
-        g2.setStroke(new BasicStroke(4f));
-        g2.setColor(ACCENT_GLOW);
-        g2.drawLine(0, h - 2, w, h - 2);
+    private void drawClouds(Graphics2D g2, int w, int h) {
+        g2.setColor(new Color(255, 255, 255, 120));
+        g2.fillOval(-20, -10, 80, 50);
+        g2.fillOval(40, -20, 100, 60);
+        g2.fillOval(w - 90, -15, 80, 50);
+        g2.fillOval(w - 30, 10, 60, 40);
     }
 
     private void drawTitle(Graphics2D g2, int w, int h) {
-        String title = "PUZZLE INSIGHT";
-        String lvText = "  Lv." + currentLevel; // Thêm khoảng trắng để cách tiêu đề ra một chút
+        String lvText = "Level " + currentLevel; 
 
-        // 1. Tính toán chiều rộng của cả 2 chuỗi để căn giữa toàn bộ
-        g2.setFont(TITLE_FONT);
-        FontMetrics fm1 = g2.getFontMetrics();
-        int w1 = fm1.stringWidth(title);
+        g2.setFont(new Font("Arial", Font.BOLD, 28));
+        FontMetrics fm = g2.getFontMetrics();
+        
+        int tx = (w - fm.stringWidth(lvText)) / 2;
+        int ty = 35 + (int) floatAnimY; 
 
-        g2.setFont(new Font("Arial", Font.BOLD, 20)); // Font cho chữ Level
-        FontMetrics fm2 = g2.getFontMetrics();
-        int w2 = fm2.stringWidth(lvText);
-
-        int totalW = w1 + w2;
-        int tx = (w - totalW) / 2; // Căn giữa cả cụm (Title + Level)
-        int ty = 26; // Cố định ở mép trên
-
-        // 2. Vẽ chữ PUZZLE INSIGHT với hiệu ứng bóng
-        g2.setFont(TITLE_FONT);
-        for (int r = 8; r >= 1; r--) {
-            int a = (int) (40.0 * (1.0 - r / 9.0));
-            g2.setColor(new Color(ACCENT.getRed(), ACCENT.getGreen(), ACCENT.getBlue(), a));
-            g2.drawString(title, tx, ty + r);
-            g2.drawString(title, tx, ty - r);
-            g2.drawString(title, tx + r, ty);
-            g2.drawString(title, tx - r, ty);
-        }
-
-        GradientPaint textGrad = new GradientPaint(
-                tx, ty - fm1.getAscent(), new Color(255, 230, 255),
-                tx, ty, ACCENT);
-        g2.setPaint(textGrad);
-        g2.drawString(title, tx, ty);
-
-        // 3. Vẽ chữ Lv. X bên cạnh (Màu Vàng)
-        g2.setFont(new Font("Arial", Font.BOLD, 20));
-        g2.setColor(GOLD);
-        g2.drawString(lvText, tx + w1, ty); // Đẩy tọa độ X sang bên phải chữ Title
+        drawStickerText(g2, lvText, tx, ty, TITLE_COLOR); 
     }
 
-    private void drawScoreHUD(Graphics2D g2, int w, int h) {
-        int panelW = 125, panelH = 58;
-        int px = 10, py = h - panelH - 8;
-
-        drawHUDPanel(g2, px, py, panelW, panelH);
+    private void drawScoreHUD(Graphics2D g2, int x, int y, int w, int h) {
+        drawCutePanel(g2, x, y, w, h);
 
         g2.setFont(LABEL_FONT);
-        g2.setColor(ACCENT);
+        g2.setColor(TEXT_DARK);
         String lbl = "SCORE";
-        FontMetrics lm = g2.getFontMetrics();
-        g2.drawString(lbl, px + (panelW - lm.stringWidth(lbl)) / 2, py + 16);
+        int lx = x + (w - g2.getFontMetrics().stringWidth(lbl)) / 2;
+        g2.drawString(lbl, lx, y + 16);
 
         AffineTransform old = g2.getTransform();
-        int cx = px + panelW / 2;
-        int cy = py + panelH / 2 + 8;
+        int cx = x + w / 2;
+        int cy = y + h / 2 + 5;
         g2.translate(cx, cy);
         g2.scale(pulseFactor, pulseFactor);
         g2.translate(-cx, -cy);
 
         g2.setFont(VALUE_FONT);
-        String sv = String.valueOf(score);
-        FontMetrics vm = g2.getFontMetrics();
-        for (int r = 4; r >= 1; r--) {
-            g2.setColor(new Color(GOLD.getRed(), GOLD.getGreen(), GOLD.getBlue(), 30 * r));
-            g2.drawString(sv, cx - vm.stringWidth(sv) / 2 + r, cy + r);
-        }
-        g2.setColor(GOLD);
-        g2.drawString(sv, cx - vm.stringWidth(sv) / 2, cy);
+        drawStickerText(g2, String.valueOf(score), cx - g2.getFontMetrics().stringWidth(String.valueOf(score)) / 2, cy + 8, SCORE_COLOR);
         g2.setTransform(old);
 
-        // ĐỔI TỪ BEST SANG TARGET (Ở cuối hàm drawScoreHUD)
-        g2.setFont(new Font("Arial", Font.PLAIN, 10));
-        g2.setColor(new Color(150, 255, 150)); // Đổi sang màu xanh nhạt cho dễ nhìn
+        g2.setFont(new Font("Arial", Font.BOLD, 10));
+        g2.setColor(TEXT_DARK);
         String targetStr = "TARGET: " + targetScore;
-        FontMetrics bm = g2.getFontMetrics();
-        g2.drawString(targetStr, px + (panelW - bm.stringWidth(targetStr)) / 2, py + panelH - 4);
+        g2.drawString(targetStr, x + (w - g2.getFontMetrics().stringWidth(targetStr)) / 2, y + h - 4);
     }
 
-    private void drawMovesHUD(Graphics2D g2, int w, int h) {
-        int panelW = 100, panelH = 58;
-        int px = (w - panelW) / 2; // Canh giữa
-        int py = h - panelH - 8;
-
-        drawHUDPanel(g2, px, py, panelW, panelH);
+    private void drawMovesHUD(Graphics2D g2, int x, int y, int w, int h) {
+        drawCutePanel(g2, x, y, w, h);
 
         g2.setFont(LABEL_FONT);
-        g2.setColor(ACCENT);
+        g2.setColor(TEXT_DARK);
         String lbl = "MOVES";
-        FontMetrics lm = g2.getFontMetrics();
-        g2.drawString(lbl, px + (panelW - lm.stringWidth(lbl)) / 2, py + 16);
-
-        int cx = px + panelW / 2;
-        int cy = py + panelH / 2 + 12;
+        g2.drawString(lbl, x + (w - g2.getFontMetrics().stringWidth(lbl)) / 2, y + 16);
 
         g2.setFont(VALUE_FONT);
         String mv = String.valueOf(movesLeft);
-        FontMetrics vm = g2.getFontMetrics();
-
-        // Đổi màu đỏ nếu số bước dưới 5
-        Color drawColor = (movesLeft <= 5) ? TIMER_CRIT : MOVES_COLOR;
-
-        for (int r = 4; r >= 1; r--) {
-            g2.setColor(new Color(drawColor.getRed(), drawColor.getGreen(), drawColor.getBlue(), 30 * r));
-            g2.drawString(mv, cx - vm.stringWidth(mv) / 2 + r, cy + r);
-        }
-        g2.setColor(drawColor);
-        g2.drawString(mv, cx - vm.stringWidth(mv) / 2, cy);
+        Color drawColor = (movesLeft <= 5) ? TIME_CRIT : MOVES_COLOR;
+        drawStickerText(g2, mv, x + (w - g2.getFontMetrics().stringWidth(mv)) / 2, y + h / 2 + 13, drawColor);
     }
 
-    private void drawTimerHUD(Graphics2D g2, int w, int h) {
-        int panelW = 125, panelH = 58;
-        int px = w - panelW - 10;
-        int py = h - panelH - 8;
-
-        drawHUDPanel(g2, px, py, panelW, panelH);
+    private void drawTimerHUD(Graphics2D g2, int x, int y, int w, int h) {
+        drawCutePanel(g2, x, y, w, h);
 
         g2.setFont(LABEL_FONT);
-        g2.setColor(ACCENT);
+        g2.setColor(TEXT_DARK);
         String lbl = "TIME";
-        FontMetrics lm = g2.getFontMetrics();
-        g2.drawString(lbl, px + (panelW - lm.stringWidth(lbl)) / 2, py + 16);
+        g2.drawString(lbl, x + (w - g2.getFontMetrics().stringWidth(lbl)) / 2, y + 16);
 
-        Color tColor;
-        if (timeLeft > 60)
-            tColor = TIMER_OK;
-        else if (timeLeft > 20)
-            tColor = TIMER_WARN;
-        else
-            tColor = TIMER_CRIT;
-
-        Color tDraw = tColor;
+        Color tColor = (timeLeft > 20) ? TIME_COLOR : TIME_CRIT;
+        
+        AffineTransform old = g2.getTransform();
+        int cx = x + w / 2;
+        int cy = y + h / 2 + 5;
         if (timeLeft <= 10 && timerRunning) {
-            long ms = System.currentTimeMillis();
-            if ((ms / 300) % 2 == 0)
-                tDraw = new Color(tColor.getRed(), tColor.getGreen(), tColor.getBlue(), 80);
+            float scale = 1f + (float) Math.abs(Math.sin(System.currentTimeMillis() / 150.0)) * 0.15f;
+            g2.translate(cx, cy);
+            g2.scale(scale, scale);
+            g2.translate(-cx, -cy);
         }
-
-        int cx = px + panelW / 2;
-        int cy = py + panelH / 2 + 8;
 
         g2.setFont(VALUE_FONT);
         int mins = timeLeft / 60, secs = timeLeft % 60;
         String tv = String.format("%d:%02d", mins, secs);
-        FontMetrics vm = g2.getFontMetrics();
+        drawStickerText(g2, tv, cx - g2.getFontMetrics().stringWidth(tv) / 2, cy + 8, tColor);
+        g2.setTransform(old);
 
-        for (int r = 4; r >= 1; r--) {
-            g2.setColor(new Color(tColor.getRed(), tColor.getGreen(), tColor.getBlue(), 25 * r));
-            g2.drawString(tv, cx - vm.stringWidth(tv) / 2 + r, cy + r);
-        }
-        g2.setColor(tDraw);
-        g2.drawString(tv, cx - vm.stringWidth(tv) / 2, cy);
-
-        int barX = px + 10, barY = py + panelH - 8;
-        int barW = panelW - 20, barH = 4;
-        g2.setColor(new Color(255, 255, 255, 30));
+        int barX = x + 12, barY = y + h - 10;
+        int barW = w - 24, barH = 6;
+        g2.setColor(new Color(200, 210, 220)); 
         g2.fillRoundRect(barX, barY, barW, barH, barH, barH);
         int filled = (maxTime > 0) ? (int)(barW * (double)timeLeft / maxTime) : 0;
-        GradientPaint barGrad = new GradientPaint(barX, 0, tColor, barX + filled, 0,
-                new Color(tColor.getRed(), tColor.getGreen(), tColor.getBlue(), 160));
-        g2.setPaint(barGrad);
+        g2.setColor(tColor);
         g2.fillRoundRect(barX, barY, filled, barH, barH, barH);
     }
 
-    private void drawHUDPanel(Graphics2D g2, int x, int y, int w, int h) {
-        int arc = 14;
+    private void drawCutePanel(Graphics2D g2, int x, int y, int w, int h) {
+        int arc = 25;
+        g2.setColor(new Color(0, 0, 0, 20));
+        g2.fillRoundRect(x + 2, y + 3, w, h, arc, arc);
+        
         g2.setColor(PANEL_BG);
         g2.fillRoundRect(x, y, w, h, arc, arc);
-        g2.setStroke(new BasicStroke(1.5f));
-        g2.setColor(PANEL_BORDER);
+        
+        g2.setStroke(new BasicStroke(3.5f));
+        g2.setColor(Color.WHITE);
         g2.drawRoundRect(x, y, w, h, arc, arc);
-        GradientPaint inner = new GradientPaint(
-                x, y, new Color(255, 255, 255, 40),
-                x, y + h / 2, new Color(255, 255, 255, 0));
-        g2.setPaint(inner);
-        g2.fillRoundRect(x + 1, y + 1, w - 2, h / 2, arc, arc);
     }
+
+    private void drawStickerText(Graphics2D g2, String text, int x, int y, Color mainColor) {
+    // Vẽ bóng đổ 1 lần duy nhất
+    g2.setColor(new Color(0, 0, 0, 40));
+    g2.drawString(text, x + 2, y + 2);
+    
+    // Vẽ chữ chính
+    g2.setColor(mainColor);
+    g2.drawString(text, x, y);
+}
 }

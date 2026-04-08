@@ -180,4 +180,59 @@ public class GameLogic {
             }
         }
     }
+    
+
+    // 1. Class Move đại diện cho Toán tử (Operator)
+public static class Move {
+    public int r1, c1, r2, c2, score;
+    public Move(int r1, int c1, int r2, int c2, int score) {
+        this.r1 = r1; this.c1 = c1; this.r2 = r2; this.c2 = c2; this.score = score;
+    }
+}
+
+// 2. Hàm Heuristic h(u): Đánh giá lợi ích của trạng thái [cite: 395]
+public int simulateSwapAndEvaluate(int r1, int c1, int r2, int c2) {
+    int t1 = board[r1][c1].getType(), t2 = board[r2][c2].getType();
+    board[r1][c1].setType(t2); board[r2][c2].setType(t1); // Tráo tạm
+
+    int h = 0;
+    if (checkMatch(r1, c1) || checkMatch(r2, c2)) {
+        h = calculatePotentialScore(r1, c1) + calculatePotentialScore(r2, c2);
+    }
+
+    board[r1][c1].setType(t1); board[r2][c2].setType(t2); // Hoàn nguyên [cite: 717]
+    return h;
+}
+
+// 3. Thuật toán BFS: Tìm nước đi ngắn nhất (Độ sâu d=1) [cite: 785, 789]
+public Move findBFS() {
+    for (int r = 0; r < SIZE; r++) {
+        for (int c = 0; c < SIZE; c++) {
+            if (c < SIZE - 1 && simulateSwapAndEvaluate(r, c, r, c + 1) > 0) return new Move(r, c, r, c + 1, 0);
+            if (r < SIZE - 1 && simulateSwapAndEvaluate(r, c, r + 1, c) > 0) return new Move(r, c, r + 1, c, 0);
+        }
+    }
+    return null;
+}
+
+// 4. Thuật toán A*: f(u) = g(u) + h(u) [cite: 399, 428]
+public Move findAStar() {
+    Move best = null; int maxF = -1;
+    for (int r = 0; r < SIZE; r++) {
+        for (int c = 0; c < SIZE; c++) {
+            int h = (c < SIZE-1) ? simulateSwapAndEvaluate(r, c, r, c+1) : 0;
+            if (h > 0) {
+                int f = h + (r + 1); // g(u)=1 nước đi, cộng thêm r để ưu tiên ăn kẹo ở dưới [cite: 395]
+                if (f > maxF) { maxF = f; best = new Move(r, c, r, c+1, h); }
+            }
+        }
+    }
+    return best;
+}
+
+private int calculatePotentialScore(int r, int c) { return 30; } // Giả định điểm cơ bản
+
+
+
+
 }
