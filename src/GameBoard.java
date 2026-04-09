@@ -2,6 +2,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.Random;
 import javax.swing.*;
+import javax.swing.border.*;
 
 /**
  * GameBoard – Quản lý bàn cờ 8x8, xử lý kéo thả và phối hợp các thành phần logic.
@@ -34,10 +35,14 @@ public class GameBoard extends JPanel {
     private final GameLogic logic;
     private final AnimationManager animator;
 
+    // ── Hệ thống gợi ý AI (Idle Hint) ──
     private Timer idleTimer;
+    private Timer hintBlinkTimer;
+    private GameLogic.Move hintMove = null;
+    private boolean hintVisible = false;
+    private static final int IDLE_SECONDS = 5;   // giây chờ trước khi gợi ý
+    private static final int BLINK_DELAY  = 400; // ms mỗi lần nhấp nháy
     private boolean isAutoPlaying = false;
-    private int currentAIMode = 0;
-    
 
     
 
@@ -84,6 +89,10 @@ public class GameBoard extends JPanel {
                 pendingExhausted = false;
                 if (moveListener != null)
                     moveListener.onMovesExhausted();
+            }else if(isAutoPlaying){
+                Timer delayTimer = new Timer(400,e->makeAIMove());
+                delayTimer.setRepeats(false);
+                delayTimer.start();
             }
         });
 
@@ -99,6 +108,9 @@ public class GameBoard extends JPanel {
 
         setLayout(new GridBagLayout());
         add(layeredPane);
+
+        // Khởi động idle timer
+        startIdleTimer();
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -118,8 +130,80 @@ public class GameBoard extends JPanel {
         pendingExhausted = false;
         movesLeft = config.maxMoves;
         logic.resetScore();
-        animator.resetCancel(); 
+        animator.resetCancel();
+        clearHint();
         resetBoard();
+        restartIdleTimer();
+    }
+
+    // ── Idle Hint System ──────────────────────────────────────────────────────
+
+    /** Bắt đầu idle timer lần đầu */
+    private void startIdleTimer() {
+        idleTimer = new Timer(IDLE_SECONDS * 1000, e -> showHint());
+        idleTimer.setRepeats(false);
+        idleTimer.start();
+    }
+
+    /** Reset idle timer về 0 (gọi mỗi khi người chơi tương tác) */
+    private void restartIdleTimer() {
+        clearHint();
+        if (idleTimer != null) idleTimer.stop();
+        idleTimer = new Timer(IDLE_SECONDS * 1000, e -> showHint());
+        idleTimer.setRepeats(false);
+        idleTimer.start();
+    }
+
+    /** Tìm nước đi gợi ý bằng BFS và bật hiệu ứng nhấp nháy */
+    private void showHint() {
+        if (isAnimating) {
+            restartIdleTimer(); // Đang animation thì đợi thêm
+            return;
+        }
+        hintMove = logic.findBFS();
+        if (hintMove == null) return; // Không có nước nào hợp lệ
+
+        hintVisible = false;
+        hintBlinkTimer = new Timer(BLINK_DELAY, e -> {
+            hintVisible = !hintVisible;
+            applyHintBorder(hintMove, hintVisible);
+        });
+        hintBlinkTimer.start();
+    }
+
+    /** Áp dụng / xóa viền nhấp nháy cho 2 ô gợi ý */
+    private void applyHintBorder(GameLogic.Move m, boolean show) {
+    JButton btn1 = board[m.r1][m.c1].getButton();
+    JButton btn2 = board[m.r2][m.c2].getButton();
+
+    if (show) {
+        Border border = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(255, 220, 0), 3),
+                BorderFactory.createLineBorder(new Color(255, 255, 180), 1));
+        
+        btn1.setBorder(border);
+        btn2.setBorder(border);
+        // PHẢI BẬT LÊN THÌ VIỀN MỚI HIỂN THỊ
+        btn1.setBorderPainted(true);
+        btn2.setBorderPainted(true); 
+    } else {
+        btn1.setBorder(null);
+        btn2.setBorder(null);
+        // TẮT ĐI KHI KHÔNG CẦN GỢI Ý NỮA
+        btn1.setBorderPainted(false);
+        btn2.setBorderPainted(false);
+    }
+}
+
+    /** Tắt gợi ý và xóa viền */
+    private void clearHint() {
+        if (hintBlinkTimer != null) hintBlinkTimer.stop();
+        hintBlinkTimer = null;
+        if (hintMove != null) {
+            applyHintBorder(hintMove, false);
+            hintMove = null;
+        }
+        hintVisible = false;
     }
 
     // ── Nội bộ (Private) ──────────────────────────────────────────────────────
@@ -173,13 +257,16 @@ public class GameBoard extends JPanel {
             @Override
             public void mousePressed(MouseEvent e) {
                 if (isAnimating) return;
-                
+
+                // Người chơi tương tác → reset idle timer
+                restartIdleTimer();
+
                 dragStartRow = row;
                 dragStartCol = col;
                 dragStartX = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).x;
                 dragStartY = SwingUtilities.convertPoint(btn, e.getPoint(), layeredPane).y;
                 dragFired = false;
-                
+
                 // Hiệu ứng viền khi chọn kẹo
                 board[row][col].getButton().setBorder(
                         BorderFactory.createLineBorder(Color.WHITE, 3));
@@ -237,5 +324,55 @@ public class GameBoard extends JPanel {
                 && board[r][c - 2] != null && board[r][c - 2].getType() == candy)
             return true;
         return false;
+    }
+
+    // ── Hàm dành cho AI Tự động chơi ──
+    public void triggerAutoPlayAI() {
+        if (isAnimating) return; 
+
+        restartIdleTimer();
+
+        GameLogic.Move bestMove = logic.findAStar();
+        
+        if (bestMove != null) {
+            isAnimating = true;
+            clearHint(); 
+            animator.animateSwap(bestMove.r1, bestMove.c1, bestMove.r2, bestMove.c2);
+        } else {
+            System.out.println("AI: Không tìm thấy nước đi hợp lệ nào!");
+        }
+    }
+
+    // ── HỆ THỐNG AI TỰ CHƠI LIÊN TỤC ──
+
+    public void toggleAutoPlay() {
+        isAutoPlaying = !isAutoPlaying; // Đảo trạng thái Bật <-> Tắt
+        
+        if (isAutoPlaying) {
+            System.out.println("Đã BẬT Auto-Play");
+            // Nếu bàn cờ đang rảnh (không có kẹo rơi) thì cho AI đánh ngay nước đầu tiên
+            if (!isAnimating) {
+                makeAIMove();
+            }
+        } else {
+            System.out.println("Đã TẮT Auto-Play");
+        }
+    }
+
+    private void makeAIMove() {
+        if (!isAutoPlaying) return; // Nếu đã tắt thì không làm gì cả
+        
+        GameLogic.Move bestMove = logic.findAStar();
+        
+        if (bestMove != null) {
+            isAnimating = true;
+            clearHint();
+            restartIdleTimer();
+            // Ra lệnh kéo kẹo
+            animator.animateSwap(bestMove.r1, bestMove.c1, bestMove.r2, bestMove.c2);
+        } else {
+            System.out.println("AI: Bàn cờ không còn nước đi! Tắt Auto-play.");
+            isAutoPlaying = false;
+        }
     }
 }

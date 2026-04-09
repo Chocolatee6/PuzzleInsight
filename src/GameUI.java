@@ -74,19 +74,7 @@ public class GameUI extends JFrame {
         // ── XỬ LÝ SỰ KIỆN NÚT HELP ──
         header.setHelpListener(() -> {
             if (!overlayShowing) {
-                // Tạm dừng timer khi đang xem hướng dẫn
-                header.stopTimer(); 
-                
-                String helpMessage = "HƯỚNG DẪN CHƠI:\n\n"
-                                   + "🍎 Kéo để đổi vị trí 2 ô kề nhau.\n"
-                                   + "🍏 Tạo thành hàng ngang/dọc >= 3 ô để ghi điểm.\n"
-                                   + "🍊 Nối 4 ô được 50 điểm, 5 ô được 80 điểm!\n\n"
-                                   + "Chúc bạn chơi vui vẻ!";
-                                   
-                JOptionPane.showMessageDialog(this, helpMessage, "Trợ giúp", JOptionPane.INFORMATION_MESSAGE);
-                
-                // Xem xong thì chạy tiếp thời gian
-                header.startTimer(); 
+                gameBoard.toggleAutoPlay();
             }
         });
 

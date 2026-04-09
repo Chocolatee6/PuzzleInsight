@@ -215,15 +215,28 @@ public Move findBFS() {
     return null;
 }
 
-// 4. Thuật toán A*: f(u) = g(u) + h(u) [cite: 399, 428]
+
+// 4. Thuật toán A*: f(u) = g(u) + h(u)
 public Move findAStar() {
-    Move best = null; int maxF = -1;
+    Move best = null; 
+    int maxF = -1;
     for (int r = 0; r < SIZE; r++) {
         for (int c = 0; c < SIZE; c++) {
-            int h = (c < SIZE-1) ? simulateSwapAndEvaluate(r, c, r, c+1) : 0;
-            if (h > 0) {
-                int f = h + (r + 1); // g(u)=1 nước đi, cộng thêm r để ưu tiên ăn kẹo ở dưới [cite: 395]
-                if (f > maxF) { maxF = f; best = new Move(r, c, r, c+1, h); }
+            // Kiểm tra tráo đổi NGANG
+            if (c < SIZE - 1) {
+                int hHoriz = simulateSwapAndEvaluate(r, c, r, c + 1);
+                if (hHoriz > 0) {
+                    int f = hHoriz + (r + 1); // g(u)=1, ưu tiên dòng r càng lớn (ở dưới) càng tốt
+                    if (f > maxF) { maxF = f; best = new Move(r, c, r, c + 1, hHoriz); }
+                }
+            }
+            // Kiểm tra tráo đổi DỌC (Phần bị thiếu)
+            if (r < SIZE - 1) {
+                int hVert = simulateSwapAndEvaluate(r, c, r + 1, c);
+                if (hVert > 0) {
+                    int f = hVert + (r + 2); // r+2 vì ô được tráo nằm ở r+1
+                    if (f > maxF) { maxF = f; best = new Move(r, c, r + 1, c, hVert); }
+                }
             }
         }
     }
