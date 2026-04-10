@@ -1,4 +1,9 @@
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 import java.util.Random;
+import java.util.Stack;
 import javax.swing.*;
 
 /**
@@ -190,60 +195,164 @@ public static class Move {
     }
 }
 
-// 2. Hàm Heuristic h(u): Đánh giá lợi ích của trạng thái [cite: 395]
-public int simulateSwapAndEvaluate(int r1, int c1, int r2, int c2) {
-    int t1 = board[r1][c1].getType(), t2 = board[r2][c2].getType();
-    board[r1][c1].setType(t2); board[r2][c2].setType(t1); // Tráo tạm
+    // 2. Hàm Heuristic h(u): Đánh giá lợi ích của trạng thái [cite: 395]
+    public int simulateSwapAndEvaluate(int r1, int c1, int r2, int c2) {
+        int t1 = board[r1][c1].getType(), t2 = board[r2][c2].getType();
+        board[r1][c1].setType(t2); board[r2][c2].setType(t1); // Tráo tạm
 
-    int h = 0;
-    if (checkMatch(r1, c1) || checkMatch(r2, c2)) {
-        h = calculatePotentialScore(r1, c1) + calculatePotentialScore(r2, c2);
-    }
-
-    board[r1][c1].setType(t1); board[r2][c2].setType(t2); // Hoàn nguyên [cite: 717]
-    return h;
-}
-
-// 3. Thuật toán BFS: Tìm nước đi ngắn nhất (Độ sâu d=1) [cite: 785, 789]
-public Move findBFS() {
-    for (int r = 0; r < SIZE; r++) {
-        for (int c = 0; c < SIZE; c++) {
-            if (c < SIZE - 1 && simulateSwapAndEvaluate(r, c, r, c + 1) > 0) return new Move(r, c, r, c + 1, 0);
-            if (r < SIZE - 1 && simulateSwapAndEvaluate(r, c, r + 1, c) > 0) return new Move(r, c, r + 1, c, 0);
+        int h = 0;
+            
+        if (checkMatch(r1, c1)) {
+            h += calculatePotentialScore(r1, c1);
         }
+        if (checkMatch(r2, c2)) {
+            h += calculatePotentialScore(r2, c2);
+        }
+
+        board[r1][c1].setType(t1); board[r2][c2].setType(t2); // Hoàn nguyên [cite: 717]
+        return h;
     }
-    return null;
-}
 
 
-// 4. Thuật toán A*: f(u) = g(u) + h(u)
-public Move findAStar() {
-    Move best = null; 
-    int maxF = -1;
-    for (int r = 0; r < SIZE; r++) {
-        for (int c = 0; c < SIZE; c++) {
-            // Kiểm tra tráo đổi NGANG
-            if (c < SIZE - 1) {
-                int hHoriz = simulateSwapAndEvaluate(r, c, r, c + 1);
-                if (hHoriz > 0) {
-                    int f = hHoriz + (r + 1); // g(u)=1, ưu tiên dòng r càng lớn (ở dưới) càng tốt
-                    if (f > maxF) { maxF = f; best = new Move(r, c, r, c + 1, hHoriz); }
+    public Move BFS(){
+        Queue<Move> L = new LinkedList<>();
+
+        for (int r = 0; r < SIZE; r++) {
+            for (int c = 0; c < SIZE; c++) {
+                if (c < SIZE - 1 && simulateSwapAndEvaluate(r, c, r, c + 1) > 0) {
+                    L.add(new Move(r, c, r, c + 1, 0)); // Đưa vào cuối L
                 }
-            }
-            // Kiểm tra tráo đổi DỌC (Phần bị thiếu)
-            if (r < SIZE - 1) {
-                int hVert = simulateSwapAndEvaluate(r, c, r + 1, c);
-                if (hVert > 0) {
-                    int f = hVert + (r + 2); // r+2 vì ô được tráo nằm ở r+1
-                    if (f > maxF) { maxF = f; best = new Move(r, c, r + 1, c, hVert); }
+                // Kiểm tra tráo đổi dọc
+                if (r < SIZE - 1 && simulateSwapAndEvaluate(r, c, r + 1, c) > 0) {
+                    L.add(new Move(r, c, r + 1, c, 0)); // Đưa vào cuối L
                 }
             }
         }
+        
+        // Rút trạng thái u ở đầu danh sách L ra để sử dụng
+        if (!L.isEmpty()) {
+            return L.poll(); 
+        }
+        return null;
     }
-    return best;
-}
 
-private int calculatePotentialScore(int r, int c) { return 30; } // Giả định điểm cơ bản
+    public Move DFS() {
+        Stack<Move> L = new Stack<>();
+
+        for (int r = 0; r < SIZE; r++) {
+            for (int c = 0; c < SIZE; c++) {
+                if (c < SIZE - 1 && simulateSwapAndEvaluate(r, c, r, c + 1) > 0) {
+                    L.push(new Move(r, c, r, c + 1, 0)); // Đưa vào đỉnh L
+                }
+                if (r < SIZE - 1 && simulateSwapAndEvaluate(r, c, r + 1, c) > 0) {
+                    L.push(new Move(r, c, r + 1, c, 0)); // Đưa vào đỉnh L
+                }
+            }
+        }
+        if (!L.isEmpty()) {
+            return L.pop(); 
+        }
+        return null;
+    }
+
+    // 1. TÌM KIẾM TỐT NHẤT ĐẦU TIÊN (Best-First Search)
+    // Đặc điểm: Chỉ dùng hàm h(u) - Chỉ quan tâm đến điểm số tức thời.
+    public Move BestFirstSearch() {
+        List<Move> L = new ArrayList<>();
+
+        for (int r = 0; r < SIZE; r++) {
+            for (int c = 0; c < SIZE; c++) {
+                // Kiểm tra tráo đổi ngang
+                if (c < SIZE - 1) {
+                    int h = simulateSwapAndEvaluate(r, c, r, c + 1); // h(u) là số điểm ăn được
+                    if (h > 0) {
+                        L.add(new Move(r, c, r, c + 1, h)); // Chỉ lưu h(u)
+                    }
+                }
+                // Kiểm tra tráo đổi dọc
+                if (r < SIZE - 1) {
+                    int h = simulateSwapAndEvaluate(r, c, r + 1, c); // h(u) là số điểm ăn được
+                    if (h > 0) {
+                        L.add(new Move(r, c, r + 1, c, h)); // Chỉ lưu h(u)
+                    }
+                }
+            }
+        }
+
+        // Sắp xếp danh sách L theo điểm số giảm dần (tham lam chọn điểm cao nhất)
+        L.sort((m1, m2) -> Integer.compare(m2.score, m1.score));
+
+        // Rút trạng thái tốt nhất ở đầu danh sách
+        if (!L.isEmpty()) {
+            return L.get(0); 
+        }
+        return null;
+    }
+
+
+
+    // 2. TÌM KIẾM TỐI ƯU A* (A-Star Search)
+    // Đặc điểm: Dùng hàm f(u) = g(u) + h(u). 
+    // Tối ưu hóa việc tạo Combo bằng cách ưu tiên đáy bàn cờ.
+    public Move AStar() {
+        List<Move> L = new ArrayList<>();
+
+        for (int r = 0; r < SIZE; r++) {
+            for (int c = 0; c < SIZE; c++) {
+                // Kiểm tra tráo đổi ngang
+                if (c < SIZE - 1) {
+                    int h = simulateSwapAndEvaluate(r, c, r, c + 1);
+                    if (h > 0) {
+                        int g = (r + 1) * 2; // g(u): Trọng số độ sâu (Càng gần đáy điểm g càng cao)
+                        int f = g + h;       // CÔNG THỨC A*: f(u) = g(u) + h(u)
+                        L.add(new Move(r, c, r, c + 1, f));
+                    }
+                }
+                // Kiểm tra tráo đổi dọc
+                if (r < SIZE - 1) {
+                    int h = simulateSwapAndEvaluate(r, c, r + 1, c);
+                    if (h > 0) {
+                        int g = (r + 2) * 2; // g(u): Lấy r+2 vì ô bị tráo nằm ở dưới
+                        int f = g + h;       // CÔNG THỨC A*: f(u) = g(u) + h(u)
+                        L.add(new Move(r, c, r + 1, c, f));
+                    }
+                }
+            }
+        }
+
+        // Sắp xếp danh sách L theo giá trị f(u) giảm dần
+        L.sort((m1, m2) -> Integer.compare(m2.score, m1.score));
+
+        // Rút trạng thái tối ưu nhất ở đầu danh sách
+        if (!L.isEmpty()) {
+            return L.get(0); 
+        }
+        return null;
+    }
+
+
+
+
+    private int calculatePotentialScore(int r, int c) {
+        int type = board[r][c].getType();
+        if(type == -1) return  0;
+        int horizontal = 1;
+        for(int j=c-1;j>=0 && board[r][j].getType()==type;j--) horizontal++;
+        for(int j = c+1;j<SIZE && board[r][j].getType() == type;j++) horizontal++;
+        int vertical = 1;
+        for (int i = r - 1; i >= 0 && board[i][c].getType() == type; i--) vertical++;
+        for (int i = r + 1; i < SIZE && board[i][c].getType() == type; i++) vertical++;
+        int totalScore = 0;
+        if(horizontal == 3) totalScore+=30;
+        else if(horizontal == 4) totalScore+=50;
+        else if(horizontal>=5) totalScore+=80;
+
+        if (vertical == 3) totalScore += 30;
+        else if (vertical == 4) totalScore += 50;
+        else if (vertical >= 5) totalScore += 80;
+        return totalScore;
+        
+    } 
 
 
 

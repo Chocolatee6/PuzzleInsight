@@ -43,8 +43,11 @@ public class GameBoard extends JPanel {
     private static final int IDLE_SECONDS = 5;   // giây chờ trước khi gợi ý
     private static final int BLINK_DELAY  = 400; // ms mỗi lần nhấp nháy
     private boolean isAutoPlaying = false;
-
+    private int currentAlgorithm = 2;
     
+    public boolean  isAutoPlaying(){
+        return isAutoPlaying;
+    }
 
 
     // ── Giao diện lắng nghe (Listeners) – Quan trọng để kết nối với GameUI ──
@@ -90,7 +93,7 @@ public class GameBoard extends JPanel {
                 if (moveListener != null)
                     moveListener.onMovesExhausted();
             }else if(isAutoPlaying){
-                Timer delayTimer = new Timer(400,e->makeAIMove());
+                Timer delayTimer = new Timer(1500,e->makeAIMove());
                 delayTimer.setRepeats(false);
                 delayTimer.start();
             }
@@ -128,6 +131,8 @@ public class GameBoard extends JPanel {
         animator.cancel(); 
         isAnimating = false;
         pendingExhausted = false;
+        isAutoPlaying = false;
+
         movesLeft = config.maxMoves;
         logic.resetScore();
         animator.resetCancel();
@@ -160,7 +165,7 @@ public class GameBoard extends JPanel {
             restartIdleTimer(); // Đang animation thì đợi thêm
             return;
         }
-        hintMove = logic.findBFS();
+        hintMove = logic.BFS();
         if (hintMove == null) return; // Không có nước nào hợp lệ
 
         hintVisible = false;
@@ -170,6 +175,16 @@ public class GameBoard extends JPanel {
         });
         hintBlinkTimer.start();
     }
+
+    // BAT AI CUNG THUAT TOAN DUOC CHON
+    public void startAutoPlay(int algoType)
+    {
+        this.currentAlgorithm = algoType;
+        this.isAutoPlaying = true;
+        System.out.println("Da bat AI");
+        if(!isAnimating) makeAIMove();
+    }
+
 
     /** Áp dụng / xóa viền nhấp nháy cho 2 ô gợi ý */
     private void applyHintBorder(GameLogic.Move m, boolean show) {
@@ -326,53 +341,43 @@ public class GameBoard extends JPanel {
         return false;
     }
 
-    // ── Hàm dành cho AI Tự động chơi ──
-    public void triggerAutoPlayAI() {
-        if (isAnimating) return; 
+    
 
-        restartIdleTimer();
-
-        GameLogic.Move bestMove = logic.findAStar();
-        
-        if (bestMove != null) {
-            isAnimating = true;
-            clearHint(); 
-            animator.animateSwap(bestMove.r1, bestMove.c1, bestMove.r2, bestMove.c2);
-        } else {
-            System.out.println("AI: Không tìm thấy nước đi hợp lệ nào!");
-        }
-    }
-
-    // ── HỆ THỐNG AI TỰ CHƠI LIÊN TỤC ──
-
-    public void toggleAutoPlay() {
-        isAutoPlaying = !isAutoPlaying; // Đảo trạng thái Bật <-> Tắt
-        
-        if (isAutoPlaying) {
-            System.out.println("Đã BẬT Auto-Play");
-            // Nếu bàn cờ đang rảnh (không có kẹo rơi) thì cho AI đánh ngay nước đầu tiên
-            if (!isAnimating) {
-                makeAIMove();
-            }
-        } else {
-            System.out.println("Đã TẮT Auto-Play");
-        }
-    }
+    
 
     private void makeAIMove() {
         if (!isAutoPlaying) return; // Nếu đã tắt thì không làm gì cả
         
-        GameLogic.Move bestMove = logic.findAStar();
+        GameLogic.Move bestMove = null;
         
-        if (bestMove != null) {
+        switch (currentAlgorithm) {
+            case 0:
+                bestMove = logic.BFS();
+                break;
+            case 1:
+                bestMove = logic.DFS();
+                break;
+            case 2:
+                bestMove = logic.BestFirstSearch();
+                break;
+            case 3:
+                bestMove = logic.AStar();
+                break;
+        }
+        if(bestMove!=null){
             isAnimating = true;
             clearHint();
             restartIdleTimer();
-            // Ra lệnh kéo kẹo
             animator.animateSwap(bestMove.r1, bestMove.c1, bestMove.r2, bestMove.c2);
-        } else {
+        }else{
             System.out.println("AI: Bàn cờ không còn nước đi! Tắt Auto-play.");
             isAutoPlaying = false;
         }
+        
+    }
+
+    public void stopAutoPlay(){
+        isAutoPlaying = false;
+        System.out.println("Đã TẮT AI");
     }
 }

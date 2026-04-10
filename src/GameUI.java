@@ -25,6 +25,7 @@ public class GameUI extends JFrame {
     private JPanel mainContainer;
     private StartMenu startMenu;
     private final PauseOverlay pauseOverlay; 
+    private final AIOverlay aiOverlay;
 
     public GameUI() {
         setTitle("Puzzle Insight");
@@ -39,6 +40,25 @@ public class GameUI extends JFrame {
         overlay = new LevelOverlay();
         startMenu = new StartMenu();
         pauseOverlay = new PauseOverlay();
+
+        aiOverlay = new AIOverlay();
+        aiOverlay.setVisible(false);
+        aiOverlay.setListener(new AIOverlay.AISelectListener() {
+            @Override
+            public void onAlgorithmSelected(int algoIndex) {
+                aiOverlay.setVisible(false); // Tắt overlay
+                overlayShowing = false;      // Mở khóa UI
+                gameBoard.startAutoPlay(algoIndex); // Ra lệnh AI đánh
+                header.startTimer();         // Tiếp tục đồng hồ
+            }
+
+            @Override
+            public void onCancel() {
+                aiOverlay.setVisible(false);
+                overlayShowing = false;
+                header.startTimer();         // Cứ tiếp tục đồng hồ nếu hủy
+            }
+        });
 
         // ── Kết nối Score ──
         gameBoard.setScoreUpdateListener(newScore -> {
@@ -74,7 +94,14 @@ public class GameUI extends JFrame {
         // ── XỬ LÝ SỰ KIỆN NÚT HELP ──
         header.setHelpListener(() -> {
             if (!overlayShowing) {
-                gameBoard.toggleAutoPlay();
+                if (gameBoard.isAutoPlaying()) {
+                    gameBoard.stopAutoPlay(); // Đang chơi thì tắt
+                } else {
+                    // Đang tắt thì bật bảng chọn (Dừng đồng hồ & Khóa UI)
+                    header.stopTimer();
+                    overlayShowing = true; 
+                    aiOverlay.setVisible(true);
+                }
             }
         });
 
@@ -107,10 +134,12 @@ public class GameUI extends JFrame {
         gameBoard.setBounds(0, 0, BOARD_PX, BOARD_PX);
         pauseOverlay.setBounds(0, 0, BOARD_PX, BOARD_PX); 
         overlay.setBounds(0, 0, BOARD_PX, BOARD_PX);
+        aiOverlay.setBounds(0,0,BOARD_PX,BOARD_PX);
         
         boardLayer.add(gameBoard, JLayeredPane.DEFAULT_LAYER);
         boardLayer.add(pauseOverlay, JLayeredPane.PALETTE_LAYER); 
-        boardLayer.add(overlay, JLayeredPane.POPUP_LAYER);        
+        boardLayer.add(overlay, JLayeredPane.POPUP_LAYER);       
+        boardLayer.add(aiOverlay,JLayeredPane.DRAG_LAYER); 
 
         JPanel gamePanel = new JPanel(new BorderLayout());
         gamePanel.add(header, BorderLayout.NORTH);
@@ -166,6 +195,7 @@ public class GameUI extends JFrame {
         if (newScore >= config.targetScore) {
             overlayShowing = true;
             header.stopTimer();
+            gameBoard.stopAutoPlay();
 
             overlay.showWin(newScore, config.targetScore, () -> {
                 overlay.hideOverlay();
@@ -179,6 +209,9 @@ public class GameUI extends JFrame {
             return;
         overlayShowing = true;
         header.stopTimer();
+
+        gameBoard.stopAutoPlay();
+
         LevelConfig config = LevelConfig.generateLevel(currentLevelIndex);
     
         overlay.showLose(currentScore, config.targetScore, () -> {
