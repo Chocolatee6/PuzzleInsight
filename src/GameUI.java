@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.util.prefs.Preferences;
 import javax.swing.*;
 
 /**
@@ -27,10 +28,24 @@ public class GameUI extends JFrame {
     private final PauseOverlay pauseOverlay; 
     private final AIOverlay aiOverlay;
 
+    // Quản lý lưu game
+    private Preferences prefs; 
+    private boolean isGameStarted = false; // Phân biệt lúc mới mở app và lúc đang chơi dở
+
     public GameUI() {
         setTitle("Puzzle Insight");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setResizable(false);
+
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+        // ── ĐỌC DỮ LIỆU ĐÃ LƯU TỪ Ổ CỨNG ──
+        prefs = Preferences.userNodeForPackage(GameUI.class);
+        int savedLevel = prefs.getInt("savedLevel", -1); // -1 nghĩa là chưa từng chơi
+
+        // Nếu có dữ liệu cũ, lập tức đưa level hiện tại về level đã lưu
+        if (savedLevel != -1) {
+            this.currentLevelIndex = savedLevel;
+        }
 
         ImageIcon[] icons = loadIcons();
 
@@ -39,7 +54,18 @@ public class GameUI extends JFrame {
         header = new GameHeader();
         overlay = new LevelOverlay();
         startMenu = new StartMenu();
+        if (savedLevel != -1) {
+            startMenu.setResumeVisible(true); // Bật nút Resume ngay khi mở app!
+        }
         pauseOverlay = new PauseOverlay();
+
+        overlay.setHomeAction(() -> {
+            overlay.hideOverlay();
+            overlayShowing = false;
+            cardLayout.show(mainContainer, "MENU"); // Chuyển về thẻ Menu chính
+            startMenu.setResumeVisible(true);
+            startMenu.requestFocusInWindow();
+        });
 
         aiOverlay = new AIOverlay();
         aiOverlay.setVisible(false);
@@ -121,8 +147,9 @@ public class GameUI extends JFrame {
 
             @Override
             public void onHome() {
-                pauseOverlay.setVisible(false);
+                // Chuyển màn hình về MENU và bật nút Resume
                 cardLayout.show(mainContainer, "MENU"); 
+                startMenu.setResumeVisible(true);
                 startMenu.requestFocusInWindow();
             }
         });
@@ -142,8 +169,17 @@ public class GameUI extends JFrame {
         boardLayer.add(aiOverlay,JLayeredPane.DRAG_LAYER); 
 
         JPanel gamePanel = new JPanel(new BorderLayout());
+        gamePanel.setBackground(new Color(240, 245, 250)); // Tô màu nền cho khoảng trống 2 bên
+        
         gamePanel.add(header, BorderLayout.NORTH);
-        gamePanel.add(boardLayer, BorderLayout.CENTER);
+        
+        // ── TẠO WRAPPER CĂN GIỮA BÀN CỜ ──
+        JPanel centerWrapper = new JPanel(new GridBagLayout()); 
+        centerWrapper.setOpaque(false); 
+        centerWrapper.add(boardLayer);  // Gói bàn cờ vào giữa wrapper
+        
+        // ── THÊM WRAPPER VÀO GAME PANEL THAY VÌ THÊM TRỰC TIẾP ──
+        gamePanel.add(centerWrapper, BorderLayout.CENTER);
 
         // ── THIẾT LẬP CARDLAYOUT ──
         cardLayout = new CardLayout();
@@ -152,16 +188,38 @@ public class GameUI extends JFrame {
         mainContainer.add(startMenu, "MENU");
         mainContainer.add(gamePanel, "GAME");
 
+        // ── THIẾT LẬP CÁC NÚT TRÊN START MENU ──
         startMenu.setMenuAction(new StartMenu.MenuAction() {
             @Override
-            public void onPlay() {
+            public void onNewGame() {
+                isGameStarted = true; // Đánh dấu đã vào game
                 cardLayout.show(mainContainer, "GAME");
-                loadLevel(0); 
+                loadLevel(0); // Load level 0 (Hàm loadLevel sẽ tự động lưu game mới)
+                startMenu.setResumeVisible(true);
+            }
+
+            @Override
+            public void onResume() {
+                cardLayout.show(mainContainer, "GAME");
+                
+                // NẾU VỪA MỞ APP: Game chưa được nạp, ta phải gọi loadLevel
+                if (!isGameStarted) {
+                    loadLevel(currentLevelIndex);
+                    isGameStarted = true;
+                }
+                
+                // Tắt Pause và chạy tiếp thời gian
+                if (pauseOverlay.isVisible()) {
+                    pauseOverlay.setVisible(false);
+                    header.startTimer();
+                } else if (!overlayShowing) {
+                    header.startTimer();
+                }
             }
 
             @Override
             public void onExit() {
-                System.exit(0); 
+                System.exit(0);
             }
         });
 
@@ -179,6 +237,7 @@ public class GameUI extends JFrame {
         currentLevelIndex = index;
         currentScore = 0;
         overlayShowing = false;
+        prefs.putInt("savedLevel", currentLevelIndex);
 
         LevelConfig config = LevelConfig.generateLevel(index);
         gameBoard.initLevel(config);
@@ -230,8 +289,8 @@ public class GameUI extends JFrame {
 
         JLayeredPane lp = getLayeredPane();
         int bw = 200, bh = 50;
-        int gx = (480 - bw) / 2;
-        int gy = 100 + (480 - bh) / 2; 
+        int gx = (getWidth() - bw) / 2;
+        int gy = (getHeight() - bh) / 2;
         
         banner.setBounds(gx, gy, bw, bh);
         lp.add(banner, JLayeredPane.POPUP_LAYER);

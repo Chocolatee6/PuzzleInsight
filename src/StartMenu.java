@@ -1,5 +1,7 @@
 import java.awt.*;
 import java.awt.event.*;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
 
 public class StartMenu extends JPanel {
@@ -12,23 +14,23 @@ public class StartMenu extends JPanel {
     private static final Font TITLE_FONT = new Font("Arial", Font.BOLD, 40);
     private static final Font MENU_FONT = new Font("Arial", Font.BOLD, 24);
 
-    private final String[] menuItems = {"PLAY", "OPTIONS", "EXIT"};
+    // Thay mảng cố định bằng biến cờ (flag) để quản lý hiển thị Resume
+    private boolean canResume = false; 
     private int selectedIndex = 0;
     
-    // Mảng lưu trữ vùng chạm (hitbox) của từng nút
-    private Rectangle[] hitboxes = new Rectangle[menuItems.length];
-
+    private Rectangle[] hitboxes;
     private Image backgroundImage;
 
+    // Cập nhật lại Interface cho rõ ràng
     public interface MenuAction {
-        void onPlay();
+        void onResume();
+        void onNewGame();
         void onExit();
     }
 
     private MenuAction actionListener;
 
     public StartMenu() {
-
         try {
             backgroundImage = new ImageIcon("images/background1.png").getImage();
         } catch (Exception e) {
@@ -38,17 +40,18 @@ public class StartMenu extends JPanel {
         setOpaque(true);
         setFocusable(true);
 
-        // 1. Xử lý bàn phím (Giữ nguyên)
+        // 1. Xử lý bàn phím
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                List<String> currentMenu = getMenuItems();
                 if (e.getKeyCode() == KeyEvent.VK_UP) {
                     selectedIndex--;
-                    if (selectedIndex < 0) selectedIndex = menuItems.length - 1;
+                    if (selectedIndex < 0) selectedIndex = currentMenu.size() - 1;
                     repaint();
                 } else if (e.getKeyCode() == KeyEvent.VK_DOWN) {
                     selectedIndex++;
-                    if (selectedIndex >= menuItems.length) selectedIndex = 0;
+                    if (selectedIndex >= currentMenu.size()) selectedIndex = 0;
                     repaint();
                 } else if (e.getKeyCode() == KeyEvent.VK_ENTER) {
                     handleSelection();
@@ -56,30 +59,30 @@ public class StartMenu extends JPanel {
             }
         });
 
-        // 2. Xử lý chuột (Thêm mới)
+        // 2. Xử lý chuột
         MouseAdapter mouseAdapter = new MouseAdapter() {
             @Override
             public void mouseMoved(MouseEvent e) {
                 boolean isHovering = false;
+                if (hitboxes == null) return;
+                
                 for (int i = 0; i < hitboxes.length; i++) {
-                    // Kiểm tra xem chuột có nằm trong vùng hitbox không
                     if (hitboxes[i] != null && hitboxes[i].contains(e.getPoint())) {
                         if (selectedIndex != i) {
                             selectedIndex = i;
-                            repaint(); // Vẽ lại để cập nhật con trỏ mũi tên
+                            repaint(); 
                         }
                         isHovering = true;
                         break;
                     }
                 }
-                // Đổi con trỏ thành hình bàn tay nếu đang lướt qua nút
                 setCursor(isHovering ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) 
                                    : Cursor.getDefaultCursor());
             }
 
             @Override
             public void mousePressed(MouseEvent e) {
-                // Khi click chuột, kiểm tra xem có đang click trúng hitbox nào không
+                if (hitboxes == null) return;
                 for (int i = 0; i < hitboxes.length; i++) {
                     if (hitboxes[i] != null && hitboxes[i].contains(e.getPoint())) {
                         selectedIndex = i;
@@ -97,16 +100,39 @@ public class StartMenu extends JPanel {
         this.actionListener = action;
     }
 
+    // ── HÀM MỚI: Bật/Tắt nút Resume từ bên ngoài ──
+    public void setResumeVisible(boolean visible) {
+        this.canResume = visible;
+        this.selectedIndex = 0; // Đưa con trỏ về vị trí đầu tiên
+        repaint();
+    }
+
+    // ── HÀM MỚI: Lấy danh sách menu động ──
+    private List<String> getMenuItems() {
+        List<String> items = new ArrayList<>();
+        if (canResume) {
+            items.add("RESUME");
+        }
+        items.add("NEW GAME");
+        items.add("OPTIONS");
+        items.add("EXIT");
+        return items;
+    }
+
     private void handleSelection() {
         if (actionListener != null) {
-            switch (selectedIndex) {
-                case 0: // PLAY
-                    actionListener.onPlay();
+            String selectedItem = getMenuItems().get(selectedIndex);
+            switch (selectedItem) {
+                case "RESUME":
+                    actionListener.onResume();
                     break;
-                case 1: // OPTIONS
+                case "NEW GAME":
+                    actionListener.onNewGame();
+                    break;
+                case "OPTIONS":
                     System.out.println("Options selected");
                     break;
-                case 2: // EXIT
+                case "EXIT":
                     actionListener.onExit();
                     break;
             }
@@ -121,17 +147,11 @@ public class StartMenu extends JPanel {
 
         int w = getWidth(), h = getHeight();
 
-        // Background
         if (backgroundImage != null) {
-            // Vẽ ảnh full màn hình
             g2.drawImage(backgroundImage, 0, 0, w, h, this);
-            
-            // Tùy chọn: Phủ thêm một lớp màu đen mờ (opacity) lên trên ảnh
-            // để làm nổi bật chữ PUZZLE INSIGHT và các nút Menu
-            g2.setColor(new Color(0, 0, 0, 100)); // Số 100 là độ mờ, bạn có thể chỉnh (0-255)
+            g2.setColor(new Color(0, 0, 0, 100)); 
             g2.fillRect(0, 0, w, h);
         } else {
-            // Nếu lỗi không load được ảnh thì quay về vẽ Gradient mặc định
             GradientPaint gp = new GradientPaint(0, 0, BG_TOP, 0, h, BG_BOT);
             g2.setPaint(gp);
             g2.fillRect(0, 0, w, h);
@@ -156,22 +176,24 @@ public class StartMenu extends JPanel {
         g2.setColor(Color.WHITE);
         g2.drawString(title, tx, ty);
 
-        // Menu Items
+        // Lấy danh sách menu hiện tại
+        List<String> currentMenu = getMenuItems();
+        hitboxes = new Rectangle[currentMenu.size()];
+
         g2.setFont(MENU_FONT);
         FontMetrics fmMenu = g2.getFontMetrics();
         int menuStartY = h / 2 + 30; 
         int itemSpacing = 50;
 
-        for (int i = 0; i < menuItems.length; i++) {
-            String item = menuItems[i];
+        for (int i = 0; i < currentMenu.size(); i++) {
+            String item = currentMenu.get(i);
             int itemW = fmMenu.stringWidth(item);
             int itemH = fmMenu.getHeight();
             
             int ix = (w - itemW) / 2;
             int iy = menuStartY + (i * itemSpacing);
 
-            // CẬP NHẬT HITBOX LÚC VẼ:
-            // Tính toán tạo khung chữ nhật bao quanh chữ. Cộng trừ thêm vài pixel để dễ bấm hơn.
+            // Vẽ Hitbox bao quanh
             hitboxes[i] = new Rectangle(ix - 30, iy - fmMenu.getAscent() - 5, itemW + 60, itemH + 10);
 
             if (i == selectedIndex) {
@@ -180,10 +202,13 @@ public class StartMenu extends JPanel {
             } else {
                 g2.setColor(new Color(200, 200, 200)); 
             }
-            g2.drawString(item, ix, iy);
             
-            // Bật dòng này lên nếu bạn muốn nhìn thấy hitbox tàng hình (dùng để debug)
-            // g2.draw(hitboxes[i]); 
+            // Đổi màu đặc biệt cho chữ RESUME để nổi bật
+            if (item.equals("RESUME") && i != selectedIndex) {
+                g2.setColor(new Color(100, 255, 150)); // Màu xanh lơ nhạt
+            }
+            
+            g2.drawString(item, ix, iy);
         }
 
         g2.dispose();
