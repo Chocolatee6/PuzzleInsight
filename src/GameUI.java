@@ -1,355 +1,318 @@
-
 import java.awt.*;
-import java.util.Random;
+import java.util.prefs.Preferences;
 import javax.swing.*;
 
+/**
+ * GameUI – Cửa sổ chính, điều phối toàn bộ hệ thống màn chơi.
+ */
 public class GameUI extends JFrame {
-	
-	JButton[][] cells = new JButton[8][8]; // tao ma tran nut bam
-	Random rd = new Random();
 
-	ImageIcon[] characterIcons = new ImageIcon[5];
-	
-	int selectedRow =-1;
-	int selectedCol = -1;
-	
-	ImageIcon loadIcon(String path)
-	{
-		ImageIcon icon = new ImageIcon(path);
-		Image img = icon.getImage().getScaledInstance(60, 60, Image.SCALE_SMOOTH);
-		return new ImageIcon(img);
-	}
+    private static final int CELL_SIZE = 60;
+    private static final int NUM_ICONS = 5;
+    private static final int BOARD_PX = CELL_SIZE * 8; // 480
 
+    // ── Level ──
+    private int currentLevelIndex = 0;
+    private int currentScore = 0;
+    private boolean overlayShowing = false;
 
-	public void handleClick(int r, int c)
-	{
-		if(selectedRow == -1)
-		{
-			selectedRow = r;
-			selectedCol = c;
-	        cells[r][c].setBorder(BorderFactory.createLineBorder(Color.WHITE, 3));
+    // ── UI Components ──
+    private final GameBoard gameBoard;
+    private final GameHeader header;
+    private final LevelOverlay overlay;
 
-			
-		}else {
-	        cells[selectedRow][selectedCol].setBorder(UIManager.getBorder("Button.border"));
+    // ── Quản lý chuyển màn hình ──
+    private CardLayout cardLayout;
+    private JPanel mainContainer;
+    private StartMenu startMenu;
+    private final PauseOverlay pauseOverlay; 
+    private final AIOverlay aiOverlay;
 
-			if(checkKeNhau(selectedRow, selectedCol, r, c)){
-	            swap(selectedRow, selectedCol, r, c);
-	        }
-			selectedRow = -1;
-			selectedCol = -1;
-		}
-	}
-	void swap(int r1,int c1,int r2,int c2){
+    // Quản lý lưu game
+    private Preferences prefs; 
+    private boolean isGameStarted = false; // Phân biệt lúc mới mở app và lúc đang chơi dở
 
-    int type1 = (int) cells[r1][c1].getClientProperty("type");
-    int type2 = (int) cells[r2][c2].getClientProperty("type");
+    public GameUI() {
+        setTitle("Puzzle Insight");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-    // swap dữ liệu
-    cells[r1][c1].putClientProperty("type", type2);
-    cells[r2][c2].putClientProperty("type", type1);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
 
-    // cập nhật hình
-    cells[r1][c1].setIcon(characterIcons[type2]);
-    cells[r2][c2].setIcon(characterIcons[type1]);
+        // ── ĐỌC DỮ LIỆU ĐÃ LƯU TỪ Ổ CỨNG ──
+        prefs = Preferences.userNodeForPackage(GameUI.class);
+        int savedLevel = prefs.getInt("savedLevel", -1); // -1 nghĩa là chưa từng chơi
 
-    // check match
-    if(checkMatch(r1,c1) || checkMatch(r2,c2)){
-        animateDestroy();
-    } else {
-        // đổi lại nếu không hợp lệ
-        cells[r1][c1].putClientProperty("type", type1);
-        cells[r2][c2].putClientProperty("type", type2);
+        // Nếu có dữ liệu cũ, lập tức đưa level hiện tại về level đã lưu
+        if (savedLevel != -1) {
+            this.currentLevelIndex = savedLevel;
+        }
 
-        cells[r1][c1].setIcon(characterIcons[type1]);
-        cells[r2][c2].setIcon(characterIcons[type2]);
-    }
-}
-	boolean checkKeNhau(int r1,int c1,int r2,int c2){
+        ImageIcon[] icons = loadIcons();
 
-	    int diff = Math.abs(r1 - r2) + Math.abs(c1 - c2);
+        // ── Khởi tạo các components ──
+        gameBoard = new GameBoard(icons);
+        header = new GameHeader();
+        overlay = new LevelOverlay();
+        startMenu = new StartMenu();
+        if (savedLevel != -1) {
+            startMenu.setResumeVisible(true); // Bật nút Resume ngay khi mở app!
+        }
+        pauseOverlay = new PauseOverlay();
 
-	    return diff == 1;
+        overlay.setHomeAction(() -> {
+            overlay.hideOverlay();
+            overlayShowing = false;
+            cardLayout.show(mainContainer, "MENU"); // Chuyển về thẻ Menu chính
+            startMenu.setResumeVisible(true);
+            startMenu.requestFocusInWindow();
+        });
 
-	}
-	
-	boolean checkMatch(int r,int c)
-	{
-		
-		int cnt = 1;
-		int type = (int) cells[r][c].getClientProperty("type");
-		
-	    if(type == -1) return false;
+        aiOverlay = new AIOverlay();
+        aiOverlay.setVisible(false);
+        aiOverlay.setListener(new AIOverlay.AISelectListener() {
+            @Override
+            public void onAlgorithmSelected(int algoIndex) {
+                aiOverlay.setVisible(false); // Tắt overlay
+                overlayShowing = false;      // Mở khóa UI
+                gameBoard.startAutoPlay(algoIndex); // Ra lệnh AI đánh
+                header.startTimer();         // Tiếp tục đồng hồ
+            }
 
-		
-		// ngang trai
-		if(c-1>=0)
-		{
-			int j=c-1;
-			while(j>=0 && (int)cells[r][j].getClientProperty("type")==type)
-			{
-				cnt++;
-				j--;
-			}
-		}
-		if(c+1>=0)
-		{
-			int j=c+1;
-			while(j<8 && (int)cells[r][j].getClientProperty("type")==type)
-			{
-				cnt++;
-				j++;
-			}
-		}
-		if (cnt>=3) return true;
-		cnt=1;
-		
-		//doc tren
-		if(r-1>=0)
-		{
-			int i=r-1;
-			while(i >= 0 && (int)cells[i][c].getClientProperty("type")==type){
-		        cnt++;
-		        i--;
-			}
-		}
-		
-		// doc xuong
-		
-		if(r+1<8)
-		{
-			 int i = r + 1;
-			    while(i < 8 && (int)cells[i][c].getClientProperty("type")==type){
-			        cnt++;
-			        i++;
-			    }
-		}
-		return cnt>=3;
-	}
-	
-	
-	void applyGravity(){
+            @Override
+            public void onCancel() {
+                aiOverlay.setVisible(false);
+                overlayShowing = false;
+                header.startTimer();         // Cứ tiếp tục đồng hồ nếu hủy
+            }
+        });
 
-    for(int j=0;j<8;j++){
-        for(int i=7;i>=0;i--){
+        // ── Kết nối Score ──
+        gameBoard.setScoreUpdateListener(newScore -> {
+            currentScore = newScore;
+            header.setScore(newScore);
+            checkWin(newScore);
+        });
 
-            int type = (int) cells[i][j].getClientProperty("type");
+        // ── Kết nối Moves ──
+        gameBoard.setMoveListener(new GameBoard.MoveListener() {
+            @Override
+            public void onMoveUsed(int movesLeft) {
+                header.setMovesLeft(movesLeft);
+            }
 
-            if(type == -1){
+            @Override
+            public void onMovesExhausted() {
+                onLevelLose();
+            }
+        });
 
-                int k = i - 1;
+        // ── Timer hết → thua ──
+        header.setTimerExpiredListener(this::onLevelLose);
 
-                while(k >= 0 &&
-                    (int)cells[k][j].getClientProperty("type") == -1){
-                    k--;
-                }
+        // ── XỬ LÝ SỰ KIỆN NÚT PAUSE ──
+        header.setPauseListener(() -> {
+            if (!overlayShowing) {
+                header.stopTimer();
+                pauseOverlay.setVisible(true);
+            }
+        });
 
-                if(k >= 0){
-
-                    int aboveType = (int) cells[k][j].getClientProperty("type");
-
-                    cells[i][j].putClientProperty("type", aboveType);
-                    cells[i][j].setIcon(characterIcons[aboveType]);
-
-                    cells[k][j].putClientProperty("type", -1);
-                    cells[k][j].setIcon(null);
+        // ── XỬ LÝ SỰ KIỆN NÚT HELP ──
+        header.setHelpListener(() -> {
+            if (!overlayShowing) {
+                if (gameBoard.isAutoPlaying()) {
+                    gameBoard.stopAutoPlay(); // Đang chơi thì tắt
+                } else {
+                    // Đang tắt thì bật bảng chọn (Dừng đồng hồ & Khóa UI)
+                    header.stopTimer();
+                    overlayShowing = true; 
+                    aiOverlay.setVisible(true);
                 }
             }
-        }
-    }
-}
-	
-	
-	void spawnFromTop(){
+        });
 
-    for(int j=0;j<8;j++){
-        for(int i=0;i<8;i++){
-
-            int type = (int) cells[i][j].getClientProperty("type");
-
-            if(type == -1){
-
-                int newCandy = rd.nextInt(5);
-
-                cells[i][j].putClientProperty("type", newCandy);
-                cells[i][j].setIcon(characterIcons[newCandy]);
+        // ── XỬ LÝ NÚT TRONG MÀN HÌNH PAUSE ──
+        pauseOverlay.setPauseAction(new PauseOverlay.PauseAction() {
+            @Override
+            public void onResume() {
+                pauseOverlay.setVisible(false); 
+                header.startTimer();            
             }
-        }
-    }
-}
-	
-	
-	void destroyMatch() {
 
-    boolean[][] mark = new boolean[8][8];
-
-    // check ngang
-    for(int i=0;i<8;i++){
-        for(int j=0;j<6;j++){
-
-            int type = (int) cells[i][j].getClientProperty("type");
-
-            if(type != -1 &&
-               type == (int)cells[i][j+1].getClientProperty("type") &&
-               type == (int)cells[i][j+2].getClientProperty("type")){
-
-                mark[i][j] = mark[i][j+1] = mark[i][j+2] = true;
+            @Override
+            public void onRestart() {
+                pauseOverlay.setVisible(false);
+                loadLevel(currentLevelIndex);   
             }
-        }
-    }
 
-    // check dọc
-    for(int i=0;i<6;i++){
-        for(int j=0;j<8;j++){
-
-            int type = (int) cells[i][j].getClientProperty("type");
-
-            if(type != -1 &&
-               type == (int)cells[i+1][j].getClientProperty("type") &&
-               type == (int)cells[i+2][j].getClientProperty("type")){
-
-                mark[i][j] = mark[i+1][j] = mark[i+2][j] = true;
+            @Override
+            public void onHome() {
+                // Chuyển màn hình về MENU và bật nút Resume
+                cardLayout.show(mainContainer, "MENU"); 
+                startMenu.setResumeVisible(true);
+                startMenu.requestFocusInWindow();
             }
-        }
-    }
+        });
 
-    // phá
-    for(int i=0;i<8;i++){
-        for(int j=0;j<8;j++){
-            if(mark[i][j]){
-                cells[i][j].putClientProperty("type", -1);
-                cells[i][j].setIcon(null);
+        // ── ĐÓNG GÓI MÀN HÌNH GAME CHÍNH ──
+        JLayeredPane boardLayer = new JLayeredPane();
+        boardLayer.setPreferredSize(new Dimension(BOARD_PX, BOARD_PX));
+        
+        gameBoard.setBounds(0, 0, BOARD_PX, BOARD_PX);
+        pauseOverlay.setBounds(0, 0, BOARD_PX, BOARD_PX); 
+        overlay.setBounds(0, 0, BOARD_PX, BOARD_PX);
+        aiOverlay.setBounds(0,0,BOARD_PX,BOARD_PX);
+        
+        boardLayer.add(gameBoard, JLayeredPane.DEFAULT_LAYER);
+        boardLayer.add(pauseOverlay, JLayeredPane.PALETTE_LAYER); 
+        boardLayer.add(overlay, JLayeredPane.POPUP_LAYER);       
+        boardLayer.add(aiOverlay,JLayeredPane.DRAG_LAYER); 
+
+        JPanel gamePanel = new JPanel(new BorderLayout());
+        gamePanel.setBackground(new Color(240, 245, 250)); // Tô màu nền cho khoảng trống 2 bên
+        
+        gamePanel.add(header, BorderLayout.NORTH);
+        
+        // ── TẠO WRAPPER CĂN GIỮA BÀN CỜ ──
+        JPanel centerWrapper = new JPanel(new GridBagLayout()); 
+        centerWrapper.setOpaque(false); 
+        centerWrapper.add(boardLayer);  // Gói bàn cờ vào giữa wrapper
+        
+        // ── THÊM WRAPPER VÀO GAME PANEL THAY VÌ THÊM TRỰC TIẾP ──
+        gamePanel.add(centerWrapper, BorderLayout.CENTER);
+
+        // ── THIẾT LẬP CARDLAYOUT ──
+        cardLayout = new CardLayout();
+        mainContainer = new JPanel(cardLayout);
+        
+        mainContainer.add(startMenu, "MENU");
+        mainContainer.add(gamePanel, "GAME");
+
+        // ── THIẾT LẬP CÁC NÚT TRÊN START MENU ──
+        startMenu.setMenuAction(new StartMenu.MenuAction() {
+            @Override
+            public void onNewGame() {
+                isGameStarted = true; // Đánh dấu đã vào game
+                cardLayout.show(mainContainer, "GAME");
+                loadLevel(0); // Load level 0 (Hàm loadLevel sẽ tự động lưu game mới)
+                startMenu.setResumeVisible(true);
             }
-        }
-    }
-}
-	
-	
-	
-	
-	
-	boolean fallStep(){
 
-    boolean moved = false;
-
-    for(int j=0;j<8;j++){
-        for(int i=7;i>0;i--){
-
-            int cur = (int) cells[i][j].getClientProperty("type");
-            int above = (int) cells[i-1][j].getClientProperty("type");
-
-            if(cur == -1 && above != -1){
-
-                // kéo xuống 1 ô
-                cells[i][j].putClientProperty("type", above);
-                cells[i][j].setIcon(characterIcons[above]);
-
-                cells[i-1][j].putClientProperty("type", -1);
-                cells[i-1][j].setIcon(null);
-
-                moved = true;
+            @Override
+            public void onResume() {
+                cardLayout.show(mainContainer, "GAME");
+                
+                // NẾU VỪA MỞ APP: Game chưa được nạp, ta phải gọi loadLevel
+                if (!isGameStarted) {
+                    loadLevel(currentLevelIndex);
+                    isGameStarted = true;
+                }
+                
+                // Tắt Pause và chạy tiếp thời gian
+                if (pauseOverlay.isVisible()) {
+                    pauseOverlay.setVisible(false);
+                    header.startTimer();
+                } else if (!overlayShowing) {
+                    header.startTimer();
+                }
             }
+
+            @Override
+            public void onExit() {
+                System.exit(0);
+            }
+        });
+
+        setLayout(new BorderLayout());
+        add(mainContainer, BorderLayout.CENTER);
+        cardLayout.show(mainContainer, "MENU");
+
+        pack();
+        setLocationRelativeTo(null);
+        setVisible(true);
+        startMenu.requestFocusInWindow();
+    }
+
+    private void loadLevel(int index) {
+        currentLevelIndex = index;
+        currentScore = 0;
+        overlayShowing = false;
+        prefs.putInt("savedLevel", currentLevelIndex);
+
+        LevelConfig config = LevelConfig.generateLevel(index);
+        gameBoard.initLevel(config);
+        header.initLevel(config);
+        header.startTimer();
+
+        showLevelBanner(config.levelNumber);
+    }
+
+    private void checkWin(int newScore) {
+        if (overlayShowing)
+            return;
+        LevelConfig config = LevelConfig.generateLevel(currentLevelIndex);
+        if (newScore >= config.targetScore) {
+            overlayShowing = true;
+            header.stopTimer();
+            gameBoard.stopAutoPlay();
+
+            overlay.showWin(newScore, config.targetScore, () -> {
+                overlay.hideOverlay();
+                loadLevel(currentLevelIndex + 1);
+            });
         }
     }
 
-    return moved;
-}
-	
-	boolean hasAnyMatch(){
+    private void onLevelLose() {
+        if (overlayShowing)
+            return;
+        overlayShowing = true;
+        header.stopTimer();
 
-	    for(int i=0;i<8;i++){
-	        for(int j=0;j<8;j++){
-	            if(checkMatch(i,j)) return true;
-	        }
-	    }
+        gameBoard.stopAutoPlay();
 
-	    return false;
-	}
-	
-	void animateDestroy(){
+        LevelConfig config = LevelConfig.generateLevel(currentLevelIndex);
+    
+        overlay.showLose(currentScore, config.targetScore, () -> {
+            overlay.hideOverlay();
+            loadLevel(currentLevelIndex); 
+        });
+    }
 
-	    destroyMatch();
+    private void showLevelBanner(int lvNum) {
+        JLabel banner = new JLabel("LEVEL " + lvNum, SwingConstants.CENTER);
+        banner.setFont(new Font("Arial", Font.BOLD, 28));
+        banner.setForeground(new Color(255, 230, 100));
+        banner.setOpaque(true);
+        banner.setBackground(new Color(20, 5, 40, 230)); 
+        banner.setBorder(BorderFactory.createLineBorder(new Color(160, 80, 255), 3));
 
-	    Timer timer = new Timer(150, null);
+        JLayeredPane lp = getLayeredPane();
+        int bw = 200, bh = 50;
+        int gx = (getWidth() - bw) / 2;
+        int gy = (getHeight() - bh) / 2;
+        
+        banner.setBounds(gx, gy, bw, bh);
+        lp.add(banner, JLayeredPane.POPUP_LAYER);
+        lp.repaint();
 
-	    timer.addActionListener(e -> {
-	        ((Timer)e.getSource()).stop();
-	        animateGravity();
-	    });
+        Timer t = new Timer(1500, e -> {
+            lp.remove(banner);
+            lp.repaint();
+        });
+        t.setRepeats(false);
+        t.start();
+    }
 
-	    timer.setRepeats(false);
-	    timer.start();
-	}
-	
-	void animateGravity(){
-
-	    Timer timer = new Timer(80, null); // 80ms mỗi frame
-
-	    timer.addActionListener(e -> {
-
-	        boolean moved = fallStep();
-
-	        if(!moved){
-	            timer.stop();
-
-	            spawnFromTop();
-
-	            // sau khi spawn, check combo tiếp
-	            if(hasAnyMatch()){
-	                animateDestroy(); // gọi lại vòng lặp
-	            }
-	        }
-	    });
-
-	    timer.start();
-	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	public GameUI() {
-		setTitle("Puzzle Insight");
-		setSize(500,600);
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setLocationRelativeTo(null);
-		
-		JPanel broadPanel = new GradientPanel();
-		broadPanel.setLayout(new GridLayout(8,8));
-		
-		for (int i = 0; i <5; i++) {
-			characterIcons[i] = loadIcon("images/characters_000"+(i+1)+".png");
-		}
-
-
-		for(int i=0; i<8;i++)
-		{
-			for(int j=0;j<8;j++)
-			{
-				cells[i][j] = new JButton();
-				cells[i][j].setPreferredSize(new Dimension(60,60));
-				cells[i][j].setBorderPainted(false);
-				cells[i][j].setFocusPainted(false);
-				cells[i][j].setContentAreaFilled(false);
-				int row = i,col=j;
-				cells[i][j].addActionListener(e->handleClick(row,col));
-				
-				int candy = rd.nextInt(5);
-
-				cells[i][j].putClientProperty("type", candy);
-				cells[i][j].setIcon(characterIcons[candy]);
-
-				broadPanel.add(cells[i][j]);
-			}
-		}
-		
-		add(broadPanel,BorderLayout.CENTER);
-		setVisible(true);
-		
-	}
+    private ImageIcon[] loadIcons() {
+        ImageIcon[] icons = new ImageIcon[NUM_ICONS];
+        for (int i = 0; i < NUM_ICONS; i++) {
+            String path = "images/characters_000" + (i + 1) + ".png";
+            Image img = new ImageIcon(path)
+                    .getImage()
+                    .getScaledInstance(CELL_SIZE, CELL_SIZE, Image.SCALE_SMOOTH);
+            icons[i] = new ImageIcon(img);
+        }
+        return icons;
+    }
 }
