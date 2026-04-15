@@ -7,9 +7,10 @@ import javax.swing.*;
  */
 public class GameUI extends JFrame {
 
-    private static final int CELL_SIZE = 60;
+    public static int CELL_SIZE = 60;
     private static final int NUM_ICONS = 5;
-    private static final int BOARD_PX = CELL_SIZE * 8; // 480
+    public  static  int BOARD_PX = CELL_SIZE * 8; // 480
+    private Image[] originalImages;
 
     // ── Level ──
     private int currentLevelIndex = 0;
@@ -36,8 +37,10 @@ public class GameUI extends JFrame {
         setTitle("Puzzle Insight");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
-
+        setExtendedState(JFrame.MAXIMIZED_BOTH); // Phóng to tối đa
+        setResizable(true);                      // Cho phép kéo thả cửa sổ
+        setMinimumSize(new Dimension(800, 600)); // Kích thước thu nhỏ tối thiểu
+        setLocationRelativeTo(null);
         // ── ĐỌC DỮ LIỆU ĐÃ LƯU TỪ Ổ CỨNG ──
         prefs = Preferences.userNodeForPackage(GameUI.class);
         int savedLevel = prefs.getInt("savedLevel", -1); // -1 nghĩa là chưa từng chơi
@@ -46,8 +49,10 @@ public class GameUI extends JFrame {
         if (savedLevel != -1) {
             this.currentLevelIndex = savedLevel;
         }
-
-        ImageIcon[] icons = loadIcons();
+        
+        //ImageIcon[] icons = loadIcons();
+        loadOriginalImages();
+        ImageIcon[] icons = scaleIcons(CELL_SIZE);
 
         // ── Khởi tạo các components ──
         gameBoard = new GameBoard(icons);
@@ -65,6 +70,7 @@ public class GameUI extends JFrame {
             cardLayout.show(mainContainer, "MENU"); // Chuyển về thẻ Menu chính
             startMenu.setResumeVisible(true);
             startMenu.requestFocusInWindow();
+            SoundManager.playMusicLoop("sounds/nana.wav");
         });
 
         aiOverlay = new AIOverlay();
@@ -113,6 +119,7 @@ public class GameUI extends JFrame {
         header.setPauseListener(() -> {
             if (!overlayShowing) {
                 header.stopTimer();
+                gameBoard.stopAutoPlay();
                 pauseOverlay.setVisible(true);
             }
         });
@@ -151,6 +158,7 @@ public class GameUI extends JFrame {
                 cardLayout.show(mainContainer, "MENU"); 
                 startMenu.setResumeVisible(true);
                 startMenu.requestFocusInWindow();
+                SoundManager.playMusicLoop("sounds/nana.wav");
             }
         });
 
@@ -168,8 +176,19 @@ public class GameUI extends JFrame {
         boardLayer.add(overlay, JLayeredPane.POPUP_LAYER);       
         boardLayer.add(aiOverlay,JLayeredPane.DRAG_LAYER); 
 
-        JPanel gamePanel = new JPanel(new BorderLayout());
-        gamePanel.setBackground(new Color(240, 245, 250)); // Tô màu nền cho khoảng trống 2 bên
+         JPanel gamePanel = new JPanel(new BorderLayout());
+         gamePanel.setBackground(new Color(255, 235, 245)); // Tô màu nền cho khoảng trống 2 bên
+        // JPanel gamePanel = new JPanel(new BorderLayout()){
+        //     Image bg = new ImageIcon("images/background2.png").getImage();
+        //     @Override
+        //     protected void paintComponent(Graphics g){
+        //         super.paintComponent(g);
+        //         if(bg!=null){
+        //             g.drawImage(bg, 0, 0, getWidth(),getHeight(),this);
+        //         }
+        //     }
+        // };
+        // gamePanel.setOpaque(false);
         
         gamePanel.add(header, BorderLayout.NORTH);
         
@@ -180,6 +199,34 @@ public class GameUI extends JFrame {
         
         // ── THÊM WRAPPER VÀO GAME PANEL THAY VÌ THÊM TRỰC TIẾP ──
         gamePanel.add(centerWrapper, BorderLayout.CENTER);
+        // ── SỰ KIỆN TỰ ĐỘNG THU PHÓNG BÀN CỜ (KỊCH TRẦN) ──
+        centerWrapper.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                int w = centerWrapper.getWidth();
+                int h = centerWrapper.getHeight();
+
+                // LẤY CẠNH NHỎ NHẤT (Không trừ đi lề để bàn cờ to kịch trần)
+                int minSize = Math.min(w, h); 
+                
+                if (minSize > 100) {
+                    CELL_SIZE = minSize / 8;
+                    BOARD_PX = CELL_SIZE * 8;
+
+                    boardLayer.setPreferredSize(new Dimension(BOARD_PX, BOARD_PX));
+                    gameBoard.setBounds(0, 0, BOARD_PX, BOARD_PX);
+                    pauseOverlay.setBounds(0, 0, BOARD_PX, BOARD_PX);
+                    overlay.setBounds(0, 0, BOARD_PX, BOARD_PX);
+                    aiOverlay.setBounds(0, 0, BOARD_PX, BOARD_PX);
+
+                    ImageIcon[] resizedIcons = scaleIcons(CELL_SIZE);
+                    gameBoard.updateBoardSize(CELL_SIZE, resizedIcons);
+
+                    centerWrapper.revalidate();
+                    centerWrapper.repaint();
+                }
+            }
+        });
 
         // ── THIẾT LẬP CARDLAYOUT ──
         cardLayout = new CardLayout();
@@ -216,6 +263,14 @@ public class GameUI extends JFrame {
                     header.startTimer();
                 }
             }
+            
+            @Override
+            public void onOptions() {
+                // TODO Auto-generated method stub
+                getGlassPane().setVisible(true);
+                
+                
+            }
 
             @Override
             public void onExit() {
@@ -231,6 +286,16 @@ public class GameUI extends JFrame {
         setLocationRelativeTo(null);
         setVisible(true);
         startMenu.requestFocusInWindow();
+        SoundManager.playMusicLoop("sounds/nana.wav");
+
+        // ── KHỞI TẠO BẢNG OPTIONS BẰNG GLASSPANE ──
+        OptionsOverlay optionsOverlay = new OptionsOverlay();
+        setGlassPane(optionsOverlay);
+        
+        // Khi bấm nút CLOSE, lớp kính này sẽ ẩn đi
+        optionsOverlay.setListener(() -> {
+            optionsOverlay.setVisible(false);
+        });
     }
 
     private void loadLevel(int index) {
@@ -245,6 +310,7 @@ public class GameUI extends JFrame {
         header.startTimer();
 
         showLevelBanner(config.levelNumber);
+        SoundManager.stopMusic();
     }
 
     private void checkWin(int newScore) {
@@ -255,6 +321,7 @@ public class GameUI extends JFrame {
             overlayShowing = true;
             header.stopTimer();
             gameBoard.stopAutoPlay();
+            SoundManager.playSound("sounds/leveldone.wav");
 
             overlay.showWin(newScore, config.targetScore, () -> {
                 overlay.hideOverlay();
@@ -268,6 +335,8 @@ public class GameUI extends JFrame {
             return;
         overlayShowing = true;
         header.stopTimer();
+        SoundManager.stopMusic();
+        SoundManager.playSound("sounds/gameover.wav");
 
         gameBoard.stopAutoPlay();
 
@@ -312,6 +381,22 @@ public class GameUI extends JFrame {
                     .getImage()
                     .getScaledInstance(CELL_SIZE, CELL_SIZE, Image.SCALE_SMOOTH);
             icons[i] = new ImageIcon(img);
+        }
+        return icons;
+    }
+    private void loadOriginalImages() {
+        originalImages = new Image[NUM_ICONS];
+        for (int i = 0; i < NUM_ICONS; i++) {
+            String path = "images/characters_000" + (i + 1) + ".png";
+            originalImages[i] = new ImageIcon(path).getImage();
+        }
+    }
+
+    private ImageIcon[] scaleIcons(int size) {
+        ImageIcon[] icons = new ImageIcon[NUM_ICONS];
+        for (int i = 0; i < NUM_ICONS; i++) {
+            Image scaled = originalImages[i].getScaledInstance(size, size, Image.SCALE_SMOOTH);
+            icons[i] = new ImageIcon(scaled);
         }
         return icons;
     }

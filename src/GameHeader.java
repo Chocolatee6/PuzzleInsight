@@ -67,7 +67,7 @@ public class GameHeader extends JPanel {
         btnHelp.setFocusPainted(false);
         btnHelp.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         
-        btnHelp.setBounds(365, 15, 45, 45); // Đặt ở x=365
+        
         btnHelp.addActionListener(e -> {
             if (helpListener != null) helpListener.onHelpClicked();
         });
@@ -82,11 +82,20 @@ public class GameHeader extends JPanel {
         btnPause.setFocusPainted(false);
         btnPause.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         
-        btnPause.setBounds(420, 15, 45, 45); // Đặt ở x=420
+        
         btnPause.addActionListener(e -> {
             if (pauseListener != null) pauseListener.onPauseClicked();
         });
         add(btnPause);
+
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                int w = getWidth(); // Lấy chiều rộng màn hình hiện tại
+                btnPause.setBounds(w - 70, 15, 45, 45); // Neo nút Pause cách lề phải 70px
+                btnHelp.setBounds(w - 125, 15, 45, 45); // Neo nút Help cạnh nút Pause
+            }
+        });
 
         // Animation nhấp nhô và nhịp tim
         animTimer = new Timer(16, e -> {

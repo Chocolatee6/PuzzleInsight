@@ -14,7 +14,7 @@ public class GameBoard extends JPanel {
 
     // ── Dữ liệu bàn cờ ──
     private final BoardCell[][] board = new BoardCell[SIZE][SIZE];
-    private final ImageIcon[] icons;
+    private  ImageIcon[] icons;
     private final Random rd = new Random();
 
     // ── Trạng thái kéo thả (Drag) ──
@@ -379,4 +379,28 @@ public class GameBoard extends JPanel {
         isAutoPlaying = false;
         System.out.println("Đã TẮT AI");
     }
+
+    // Hàm này giúp cập nhật lại toàn bộ kích thước kẹo khi cửa sổ thay đổi độ phân giải
+    public void updateBoardSize(int newCellSize, ImageIcon[] newIcons) {
+        this.icons = newIcons; // Ghi nhận mảng hình ảnh kẹo mới (đã được phóng to/thu nhỏ)
+        
+        // Cập nhật lại tọa độ và kích thước cho cả 64 ô
+        for (int r = 0; r < 8; r++) {
+            for (int c = 0; c < 8; c++) {
+                if (board[r][c] != null) {
+                    JButton btn = board[r][c].getButton();
+                    // Set lại kích thước cho viên kẹo
+                    btn.setBounds(c * newCellSize, r * newCellSize, newCellSize, newCellSize);
+
+                    // Set lại hình ảnh kẹo mới
+                    int type = board[r][c].getType();
+                    if (type != -1) {
+                        btn.setIcon(newIcons[type]);
+                    }
+                }
+            }
+        }
+        repaint(); // Vẽ lại bàn cờ
+    }
+
 }

@@ -12,8 +12,8 @@ public class AnimationManager {
 
     private static final int SWAP_DELAY   = 16;   // ms mỗi frame swap
     private static final int SWAP_STEPS   = 12;   // số frame swap
-    private static final int DESTROY_WAIT = 400;  // ms trước khi gravity
-    private static final int GRAVITY_DELAY = 80;  // ms mỗi frame rơi
+    private static final int DESTROY_WAIT = 600;  // ms trước khi gravity
+    private static final int GRAVITY_DELAY = 100;  // ms mỗi frame rơi
 
     private final BoardCell[][]  board;
     private final ImageIcon[]    icons;
@@ -56,6 +56,7 @@ public class AnimationManager {
     //  Trượt hai ô về phía nhau
     // ─────────────────────────────────────────────
     public void animateSwap(int r1, int c1, int r2, int c2) {
+        SoundManager.playSound("sounds/truot.wav");
         JButton b1 = board[r1][c1].getButton();
         JButton b2 = board[r2][c2].getButton();
 
@@ -186,6 +187,7 @@ public class AnimationManager {
     //  Xóa match rồi chờ, sau đó chạy gravity
     // ─────────────────────────────────────────────
     public void animateDestroy() {
+        SoundManager.playSound("sounds/an3.wav");
         logic.destroyMatch();
 
         Timer timer = new Timer(DESTROY_WAIT, null);

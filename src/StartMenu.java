@@ -25,6 +25,7 @@ public class StartMenu extends JPanel {
     public interface MenuAction {
         void onResume();
         void onNewGame();
+        void onOptions();
         void onExit();
     }
 
@@ -32,7 +33,7 @@ public class StartMenu extends JPanel {
 
     public StartMenu() {
         try {
-            backgroundImage = new ImageIcon("images/background1.png").getImage();
+            backgroundImage = new ImageIcon("images/background2.png").getImage();
         } catch (Exception e) {
             System.out.println("Không tìm thấy ảnh nền Menu!");
         }
@@ -130,7 +131,7 @@ public class StartMenu extends JPanel {
                     actionListener.onNewGame();
                     break;
                 case "OPTIONS":
-                    System.out.println("Options selected");
+                    actionListener.onOptions();
                     break;
                 case "EXIT":
                     actionListener.onExit();
@@ -197,15 +198,17 @@ public class StartMenu extends JPanel {
             hitboxes[i] = new Rectangle(ix - 30, iy - fmMenu.getAscent() - 5, itemW + 60, itemH + 10);
 
             if (i == selectedIndex) {
-                g2.setColor(GOLD);
-                g2.drawString("▶", ix - 30, iy); // Con trỏ
+                g2.setColor(Color.YELLOW);
+                int[] xPoints = {ix - 35, ix - 20, ix - 35}; 
+                int[] yPoints = {iy - 20, iy - 10, iy};      
+                g2.fillPolygon(xPoints, yPoints, 3);
             } else {
                 g2.setColor(new Color(200, 200, 200)); 
             }
             
             // Đổi màu đặc biệt cho chữ RESUME để nổi bật
             if (item.equals("RESUME") && i != selectedIndex) {
-                g2.setColor(new Color(100, 255, 150)); // Màu xanh lơ nhạt
+                g2.setColor(new Color(100, 255, 150)); 
             }
             
             g2.drawString(item, ix, iy);
