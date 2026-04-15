@@ -72,7 +72,8 @@ java -cp bin Main
 ```
 project-root/
 │── src/            # Source code
-│── assets/         # Hình ảnh, âm thanh
+│── images/         # Âm thanh
+│── sounds/         # Hình ảnh
 │── bin/            # File biên dịch
 │── README.md
 ```
