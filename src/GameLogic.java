@@ -296,6 +296,7 @@ public static class Move {
     // Tối ưu hóa việc tạo Combo bằng cách ưu tiên đáy bàn cờ.
     public Move AStar() {
         List<Move> L = new ArrayList<>();
+        
 
         for (int r = 0; r < SIZE; r++) {
             for (int c = 0; c < SIZE; c++) {
@@ -304,8 +305,10 @@ public static class Move {
                     int h = simulateSwapAndEvaluate(r, c, r, c + 1);
                     if (h > 0) {
                         int g = (r + 1) * 2; // g(u): Trọng số độ sâu (Càng gần đáy điểm g càng cao)
-                        int f = g + h;       // CÔNG THỨC A*: f(u) = g(u) + h(u)
+                        int f = g + (h*1000);       // CÔNG THỨC A*: f(u) = g(u) + h(u)
+                        
                         L.add(new Move(r, c, r, c + 1, f));
+                        
                     }
                 }
                 // Kiểm tra tráo đổi dọc
@@ -313,8 +316,9 @@ public static class Move {
                     int h = simulateSwapAndEvaluate(r, c, r + 1, c);
                     if (h > 0) {
                         int g = (r + 2) * 2; // g(u): Lấy r+2 vì ô bị tráo nằm ở dưới
-                        int f = g + h;       // CÔNG THỨC A*: f(u) = g(u) + h(u)
-                        L.add(new Move(r, c, r + 1, c, f));
+                        int f = g + (h*1000);       // CÔNG THỨC A*: f(u) = g(u) + h(u)
+                        L.add(new Move(r, c, r + 1, c,f));
+                        
                     }
                 }
             }
@@ -350,6 +354,11 @@ public static class Move {
         if (vertical == 3) totalScore += 30;
         else if (vertical == 4) totalScore += 50;
         else if (vertical >= 5) totalScore += 80;
+
+        if (horizontal >= 3 && vertical >= 3) {
+            totalScore += 100; 
+        }
+
         return totalScore;
         
     } 

@@ -198,13 +198,12 @@ public class GameBoard extends JPanel {
         
         btn1.setBorder(border);
         btn2.setBorder(border);
-        // PHẢI BẬT LÊN THÌ VIỀN MỚI HIỂN THỊ
+
         btn1.setBorderPainted(true);
         btn2.setBorderPainted(true); 
     } else {
         btn1.setBorder(null);
         btn2.setBorder(null);
-        // TẮT ĐI KHI KHÔNG CẦN GỢI Ý NỮA
         btn1.setBorderPainted(false);
         btn2.setBorderPainted(false);
     }

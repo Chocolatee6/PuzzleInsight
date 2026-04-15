@@ -7,6 +7,7 @@ public class AIOverlay extends JPanel {
     // ── INTERFACE GIAO TIẾP VỚI GAMEUI ──
     public interface AISelectListener {
         void onAlgorithmSelected(int algoIndex);
+
         void onCancel();
     }
 
@@ -14,8 +15,8 @@ public class AIOverlay extends JPanel {
 
     public AIOverlay() {
         // Căn giữa hộp thoại và làm nền trong suốt để vẽ lớp phủ mờ
-        setOpaque(false); 
-        setLayout(new GridBagLayout()); 
+        setOpaque(false);
+        setLayout(new GridBagLayout());
 
         // ── KHUNG HỘP THOẠI CHÍNH ──
         JPanel dialogPanel = new JPanel();
@@ -45,18 +46,33 @@ public class AIOverlay extends JPanel {
         JButton btnCancel = createModernButton("Hủy bỏ", new Color(200, 200, 200));
 
         // ── GẮN SỰ KIỆN CHO CÁC NÚT ──
-        btnBFS.addActionListener(e -> { if (listener != null) listener.onAlgorithmSelected(0); });
-        btnDFS.addActionListener(e -> { if (listener != null) listener.onAlgorithmSelected(1); });
-        btnBestFirst.addActionListener(e -> { if (listener != null) listener.onAlgorithmSelected(2); });
-        btnAStar.addActionListener(e -> { if (listener != null) listener.onAlgorithmSelected(3); });
-        btnCancel.addActionListener(e -> { if (listener != null) listener.onCancel(); });
+        btnBFS.addActionListener(e -> {
+            if (listener != null)
+                listener.onAlgorithmSelected(0);
+        });
+        btnDFS.addActionListener(e -> {
+            if (listener != null)
+                listener.onAlgorithmSelected(1);
+        });
+        btnBestFirst.addActionListener(e -> {
+            if (listener != null)
+                listener.onAlgorithmSelected(2);
+        });
+        btnAStar.addActionListener(e -> {
+            if (listener != null)
+                listener.onAlgorithmSelected(3);
+        });
+        btnCancel.addActionListener(e -> {
+            if (listener != null)
+                listener.onCancel();
+        });
 
         // ── LẮP RÁP VÀO KHUNG THEO CHIỀU DỌC ──
         dialogPanel.add(title);
         dialogPanel.add(Box.createVerticalStrut(5));
         dialogPanel.add(subtitle);
         dialogPanel.add(Box.createVerticalStrut(25));
-        
+
         dialogPanel.add(btnBFS);
         dialogPanel.add(Box.createVerticalStrut(10));
         dialogPanel.add(btnDFS);
@@ -64,7 +80,7 @@ public class AIOverlay extends JPanel {
         dialogPanel.add(btnBestFirst);
         dialogPanel.add(Box.createVerticalStrut(10));
         dialogPanel.add(btnAStar);
-        
+
         dialogPanel.add(Box.createVerticalStrut(20));
         dialogPanel.add(btnCancel);
 
@@ -94,8 +110,7 @@ public class AIOverlay extends JPanel {
         btn.setFocusPainted(false);
         btn.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(80, 80, 100), 1),
-                BorderFactory.createEmptyBorder(10, 20, 10, 20)
-        ));
+                BorderFactory.createEmptyBorder(10, 20, 10, 20)));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setMaximumSize(new Dimension(250, 45));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -106,6 +121,7 @@ public class AIOverlay extends JPanel {
                 btn.setBackground(hoverColor);
                 btn.setForeground(Color.BLACK);
             }
+
             @Override
             public void mouseExited(MouseEvent e) {
                 btn.setBackground(new Color(50, 50, 70));
