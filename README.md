@@ -24,7 +24,7 @@ Trước khi cài đặt, hãy đảm bảo bạn đã cài:
 ### 1. Clone project
 
 ```bash
-git clone https://github.com/your-username/your-game.git
+git clone https://github.com/Chocolatee6/PuzzleInsight.git
 ```
 
 ### 2. Mở project bằng VS Code
